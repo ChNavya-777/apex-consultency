@@ -11,10 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as FaqRouteImport } from './routes/faq'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as SuccessStoriesRouteImport } from './routes/success-stories'
 import { Route as DestinationsIndexRouteImport } from './routes/destinations.index'
 import { Route as DestinationsSlugRouteImport } from './routes/destinations.$slug'
+import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
+import { Route as ResourcesSlugRouteImport } from './routes/resources.$slug'
 import { Route as UniversitiesIndexRouteImport } from './routes/universities.index'
 import { Route as UniversitiesSlugRouteImport } from './routes/universities.$slug'
 
@@ -26,6 +29,11 @@ const IndexRoute = IndexRouteImport.update({
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaqRoute = FaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ServicesRoute = ServicesRouteImport.update({
@@ -48,6 +56,16 @@ const DestinationsSlugRoute = DestinationsSlugRouteImport.update({
   path: '/destinations/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResourcesIndexRoute = ResourcesIndexRouteImport.update({
+  id: '/resources/',
+  path: '/resources/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResourcesSlugRoute = ResourcesSlugRouteImport.update({
+  id: '/resources/$slug',
+  path: '/resources/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UniversitiesIndexRoute = UniversitiesIndexRouteImport.update({
   id: '/universities/',
   path: '/universities/',
@@ -62,32 +80,41 @@ const UniversitiesSlugRoute = UniversitiesSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/faq': typeof FaqRoute
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
+  '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
   '/destinations/': typeof DestinationsIndexRoute
+  '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/faq': typeof FaqRoute
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
+  '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
   '/destinations': typeof DestinationsIndexRoute
+  '/resources': typeof ResourcesIndexRoute
   '/universities': typeof UniversitiesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/faq': typeof FaqRoute
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
+  '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
   '/destinations/': typeof DestinationsIndexRoute
+  '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
 }
 export interface FileRouteTypes {
@@ -95,42 +122,54 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/faq'
     | '/services'
     | '/success-stories'
     | '/destinations/$slug'
+    | '/resources/$slug'
     | '/universities/$slug'
     | '/destinations/'
+    | '/resources/'
     | '/universities/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/faq'
     | '/services'
     | '/success-stories'
     | '/destinations/$slug'
+    | '/resources/$slug'
     | '/universities/$slug'
     | '/destinations'
+    | '/resources'
     | '/universities'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/faq'
     | '/services'
     | '/success-stories'
     | '/destinations/$slug'
+    | '/resources/$slug'
     | '/universities/$slug'
     | '/destinations/'
+    | '/resources/'
     | '/universities/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  FaqRoute: typeof FaqRoute
   ServicesRoute: typeof ServicesRoute
   SuccessStoriesRoute: typeof SuccessStoriesRoute
   DestinationsSlugRoute: typeof DestinationsSlugRoute
+  ResourcesSlugRoute: typeof ResourcesSlugRoute
   UniversitiesSlugRoute: typeof UniversitiesSlugRoute
   DestinationsIndexRoute: typeof DestinationsIndexRoute
+  ResourcesIndexRoute: typeof ResourcesIndexRoute
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
 }
 
@@ -148,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/faq': {
+      id: '/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof FaqRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/services': {
@@ -178,6 +224,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DestinationsSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/resources/': {
+      id: '/resources/'
+      path: '/resources'
+      fullPath: '/resources/'
+      preLoaderRoute: typeof ResourcesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resources/$slug': {
+      id: '/resources/$slug'
+      path: '/resources/$slug'
+      fullPath: '/resources/$slug'
+      preLoaderRoute: typeof ResourcesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/universities/': {
       id: '/universities/'
       path: '/universities'
@@ -198,11 +258,14 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  FaqRoute: FaqRoute,
   ServicesRoute: ServicesRoute,
   SuccessStoriesRoute: SuccessStoriesRoute,
   DestinationsSlugRoute: DestinationsSlugRoute,
+  ResourcesSlugRoute: ResourcesSlugRoute,
   UniversitiesSlugRoute: UniversitiesSlugRoute,
   DestinationsIndexRoute: DestinationsIndexRoute,
+  ResourcesIndexRoute: ResourcesIndexRoute,
   UniversitiesIndexRoute: UniversitiesIndexRoute,
 }
 export const routeTree = rootRouteImport
