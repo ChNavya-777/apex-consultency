@@ -92,7 +92,7 @@ function ResourcesIndex() {
 
         {featured && (
           <div className="mt-10">
-            <BlogCard p={featured} featured />
+            <BlogCard p={featured} />
           </div>
         )}
 
