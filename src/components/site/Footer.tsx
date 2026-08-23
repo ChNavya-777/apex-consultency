@@ -13,7 +13,7 @@ const explore = [
 const resources = [
   { label: "Blog", to: "/resources" },
   { label: "FAQs", to: "/faq" },
-  { label: "Study Abroad Guide", to: "/resources/start-planning-study-abroad-after-btech" },
+  { label: "Consultation", to: "/consultation" },
 ] as const;
 
 export function Footer() {
