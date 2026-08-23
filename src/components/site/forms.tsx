@@ -36,7 +36,7 @@ function Field({
   id: string;
   label: string;
   required?: boolean;
-  error?: string;
+  error?: string | undefined;
   children: ReactNode;
   className?: string;
 }) {
@@ -170,14 +170,14 @@ export function ContactForm() {
       </p>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
-        <Field id="name" label="Full name" required error={errors.name}>
-          <Input id="name" name="name" autoComplete="name" aria-invalid={!!errors.name} />
+        <Field id="name" label="Full name" required error={errors["name"]}>
+          <Input id="name" name="name" autoComplete="name" aria-invalid={!!errors["name"]} />
         </Field>
-        <Field id="phone" label="Phone number" required error={errors.phone}>
-          <Input id="phone" name="phone" type="tel" autoComplete="tel" aria-invalid={!!errors.phone} />
+        <Field id="phone" label="Phone number" required error={errors["phone"]}>
+          <Input id="phone" name="phone" type="tel" autoComplete="tel" aria-invalid={!!errors["phone"]} />
         </Field>
-        <Field id="email" label="Email" required error={errors.email} className="sm:col-span-2">
-          <Input id="email" name="email" type="email" autoComplete="email" aria-invalid={!!errors.email} />
+        <Field id="email" label="Email" required error={errors["email"]} className="sm:col-span-2">
+          <Input id="email" name="email" type="email" autoComplete="email" aria-invalid={!!errors["email"]} />
         </Field>
         <Field id="country" label="Interested country">
           <SelectInput id="country" name="country" options={countryOptions} placeholder="Select a country" />
@@ -185,13 +185,13 @@ export function ContactForm() {
         <Field id="course" label="Preferred course">
           <SelectInput id="course" name="course" options={courseOptions} placeholder="Select a course" />
         </Field>
-        <Field id="message" label="Message" required error={errors.message} className="sm:col-span-2">
+        <Field id="message" label="Message" required error={errors["message"]} className="sm:col-span-2">
           <Textarea
             id="message"
             name="message"
             rows={5}
             placeholder="Tell us briefly about your academic background and what you would like to discuss."
-            aria-invalid={!!errors.message}
+            aria-invalid={!!errors["message"]}
           />
         </Field>
       </div>
@@ -246,23 +246,23 @@ export function ConsultationForm() {
       </p>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
-        <Field id="fullName" label="Full name" required error={errors.fullName}>
-          <Input id="fullName" name="fullName" autoComplete="name" aria-invalid={!!errors.fullName} />
+        <Field id="fullName" label="Full name" required error={errors["fullName"]}>
+          <Input id="fullName" name="fullName" autoComplete="name" aria-invalid={!!errors["fullName"]} />
         </Field>
-        <Field id="phone" label="Phone number" required error={errors.phone}>
-          <Input id="phone" name="phone" type="tel" autoComplete="tel" aria-invalid={!!errors.phone} />
+        <Field id="phone" label="Phone number" required error={errors["phone"]}>
+          <Input id="phone" name="phone" type="tel" autoComplete="tel" aria-invalid={!!errors["phone"]} />
         </Field>
-        <Field id="email" label="Email" required error={errors.email} className="sm:col-span-2">
-          <Input id="email" name="email" type="email" autoComplete="email" aria-invalid={!!errors.email} />
+        <Field id="email" label="Email" required error={errors["email"]} className="sm:col-span-2">
+          <Input id="email" name="email" type="email" autoComplete="email" aria-invalid={!!errors["email"]} />
         </Field>
-        <Field id="degree" label="Current degree" required error={errors.degree}>
+        <Field id="degree" label="Current degree" required error={errors["degree"]}>
           <SelectInput
             id="degree"
             name="degree"
             required
             options={["B.Tech / B.E.", "B.Sc", "B.Com / BBA", "Diploma", "Other"]}
             placeholder="Select your degree"
-            ariaInvalid={!!errors.degree}
+            ariaInvalid={!!errors["degree"]}
           />
         </Field>
         <Field id="branch" label="Branch / specialisation">
@@ -274,27 +274,27 @@ export function ConsultationForm() {
         <Field id="cgpa" label="CGPA / percentage">
           <Input id="cgpa" name="cgpa" placeholder="e.g. 7.8 or 72%" />
         </Field>
-        <Field id="country" label="Preferred country" required error={errors.country}>
+        <Field id="country" label="Preferred country" required error={errors["country"]}>
           <SelectInput
             id="country"
             name="country"
             required
             options={countryOptions}
             placeholder="Select a country"
-            ariaInvalid={!!errors.country}
+            ariaInvalid={!!errors["country"]}
           />
         </Field>
         <Field id="course" label="Preferred course">
           <SelectInput id="course" name="course" options={courseOptions} placeholder="Select a course" />
         </Field>
-        <Field id="intake" label="Preferred intake" required error={errors.intake}>
+        <Field id="intake" label="Preferred intake" required error={errors["intake"]}>
           <SelectInput
             id="intake"
             name="intake"
             required
             options={["Fall / September 2026", "January 2027", "Fall / September 2027", "Not decided yet"]}
             placeholder="Select an intake"
-            ariaInvalid={!!errors.intake}
+            ariaInvalid={!!errors["intake"]}
           />
         </Field>
         <Field id="englishTest" label="IELTS / PTE status">

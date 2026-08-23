@@ -68,11 +68,11 @@ export function DestinationFinder() {
     const scores = new Map<string, number>();
     for (const d of destinations) {
       let score = 0;
-      if (fieldMatch[answers.field]?.includes(d.slug)) score += 3;
-      if (answers.budget === "low" && d.budgetBand === "moderate") score += 2;
-      if (answers.budget === "high") score += 1;
-      if (answers.region !== "any" && d.region === answers.region) score += 2;
-      if (answers.intake === "jan" && ["usa", "uk", "canada", "ireland"].includes(d.slug)) score += 1;
+      if (fieldMatch[answers["field"] ?? ""]?.includes(d.slug)) score += 3;
+      if (answers["budget"] === "low" && d.budgetBand === "moderate") score += 2;
+      if (answers["budget"] === "high") score += 1;
+      if (answers["region"] !== "any" && d.region === answers["region"]) score += 2;
+      if (answers["intake"] === "jan" && ["usa", "uk", "canada", "ireland"].includes(d.slug)) score += 1;
       scores.set(d.slug, score);
     }
     const top = [...scores.entries()]
