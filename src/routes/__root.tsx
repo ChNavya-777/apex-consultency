@@ -103,6 +103,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&display=swap",
       },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "EducationalOrganization",
+          name: "APEX Global Education",
+          description:
+            "Study-abroad consultancy providing counselling, university shortlisting, application, visa and pre-departure guidance.",
+          telephone: "+91 98765 43210",
+          email: "hello@apexglobaleducation.example",
+          address: {
+            "@type": "PostalAddress",
+            addressLocality: "Bhimavaram",
+            addressRegion: "Andhra Pradesh",
+            addressCountry: "IN",
+          },
+        }),
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
