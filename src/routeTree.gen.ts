@@ -12,9 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as ServicesRouteImport } from './routes/services'
+import { Route as SuccessStoriesRouteImport } from './routes/success-stories'
 import { Route as DestinationsIndexRouteImport } from './routes/destinations.index'
 import { Route as DestinationsSlugRouteImport } from './routes/destinations.$slug'
 import { Route as UniversitiesIndexRouteImport } from './routes/universities.index'
+import { Route as UniversitiesSlugRouteImport } from './routes/universities.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -29,6 +31,11 @@ const AboutRoute = AboutRouteImport.update({
 const ServicesRoute = ServicesRouteImport.update({
   id: '/services',
   path: '/services',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuccessStoriesRoute = SuccessStoriesRouteImport.update({
+  id: '/success-stories',
+  path: '/success-stories',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DestinationsIndexRoute = DestinationsIndexRouteImport.update({
@@ -46,12 +53,19 @@ const UniversitiesIndexRoute = UniversitiesIndexRouteImport.update({
   path: '/universities/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UniversitiesSlugRoute = UniversitiesSlugRouteImport.update({
+  id: '/universities/$slug',
+  path: '/universities/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/services': typeof ServicesRoute
+  '/success-stories': typeof SuccessStoriesRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
+  '/universities/$slug': typeof UniversitiesSlugRoute
   '/destinations/': typeof DestinationsIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
 }
@@ -59,7 +73,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/services': typeof ServicesRoute
+  '/success-stories': typeof SuccessStoriesRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
+  '/universities/$slug': typeof UniversitiesSlugRoute
   '/destinations': typeof DestinationsIndexRoute
   '/universities': typeof UniversitiesIndexRoute
 }
@@ -68,7 +84,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/services': typeof ServicesRoute
+  '/success-stories': typeof SuccessStoriesRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
+  '/universities/$slug': typeof UniversitiesSlugRoute
   '/destinations/': typeof DestinationsIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
 }
@@ -78,7 +96,9 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/services'
+    | '/success-stories'
     | '/destinations/$slug'
+    | '/universities/$slug'
     | '/destinations/'
     | '/universities/'
   fileRoutesByTo: FileRoutesByTo
@@ -86,7 +106,9 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/services'
+    | '/success-stories'
     | '/destinations/$slug'
+    | '/universities/$slug'
     | '/destinations'
     | '/universities'
   id:
@@ -94,7 +116,9 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/services'
+    | '/success-stories'
     | '/destinations/$slug'
+    | '/universities/$slug'
     | '/destinations/'
     | '/universities/'
   fileRoutesById: FileRoutesById
@@ -103,7 +127,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   ServicesRoute: typeof ServicesRoute
+  SuccessStoriesRoute: typeof SuccessStoriesRoute
   DestinationsSlugRoute: typeof DestinationsSlugRoute
+  UniversitiesSlugRoute: typeof UniversitiesSlugRoute
   DestinationsIndexRoute: typeof DestinationsIndexRoute
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
 }
@@ -131,6 +157,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/success-stories': {
+      id: '/success-stories'
+      path: '/success-stories'
+      fullPath: '/success-stories'
+      preLoaderRoute: typeof SuccessStoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/destinations/': {
       id: '/destinations/'
       path: '/destinations'
@@ -152,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UniversitiesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/universities/$slug': {
+      id: '/universities/$slug'
+      path: '/universities/$slug'
+      fullPath: '/universities/$slug'
+      preLoaderRoute: typeof UniversitiesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -159,7 +199,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   ServicesRoute: ServicesRoute,
+  SuccessStoriesRoute: SuccessStoriesRoute,
   DestinationsSlugRoute: DestinationsSlugRoute,
+  UniversitiesSlugRoute: UniversitiesSlugRoute,
   DestinationsIndexRoute: DestinationsIndexRoute,
   UniversitiesIndexRoute: UniversitiesIndexRoute,
 }
