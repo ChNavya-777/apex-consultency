@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,11 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { destinations } from "@/data/destinations";
 import { PROTOTYPE_NOTE } from "@/data/site";
 import { cn } from "@/lib/utils";
-
-/**
- * Prototype forms: client-side validation only. No backend submission, no email.
- * Phase 2 can wire these to the enquiry pipeline without changing the markup.
- */
 
 const courseOptions = [
   "MS in Computer Science",
@@ -108,9 +103,6 @@ function SuccessPanel({ title, text }: { title: string; text: string }) {
           <Link to="/resources">Read Resources</Link>
         </Button>
       </div>
-      <p className="mt-6 text-xs text-muted-foreground">
-        Prototype behaviour — no data was submitted or stored.
-      </p>
     </div>
   );
 }
@@ -208,12 +200,13 @@ export function ContactForm() {
 export function ConsultationForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (state === "done") {
     return (
       <SuccessPanel
-        title="Thank you! Your consultation request has been received."
-        text="An APEX counsellor will contact you shortly. In the meantime, you can explore study destinations or read our planning resources."
+        title="Thank you! Your consultation request has been submitted successfully."
+        text="Our team will get in touch with you soon."
       />
     );
   }
@@ -221,7 +214,7 @@ export function ConsultationForm() {
   return (
     <form
       noValidate
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
         const data = new FormData(e.currentTarget);
         const found = validate(data, [
@@ -234,8 +227,49 @@ export function ConsultationForm() {
         ]);
         setErrors(found);
         if (Object.keys(found).length > 0) return;
+
+        setSubmitError(null);
         setState("loading");
-        window.setTimeout(() => setState("done"), 1100);
+
+        const payload = {
+          fullName: String(data.get("fullName") ?? "").trim(),
+          phone: String(data.get("phone") ?? "").trim(),
+          email: String(data.get("email") ?? "").trim(),
+          degree: String(data.get("degree") ?? "").trim(),
+          branch: String(data.get("branch") ?? "").trim(),
+          graduationYear: String(data.get("graduationYear") ?? "").trim(),
+          cgpa: String(data.get("cgpa") ?? "").trim(),
+          country: String(data.get("country") ?? "").trim(),
+          course: String(data.get("course") ?? "").trim(),
+          intake: String(data.get("intake") ?? "").trim(),
+          englishTest: String(data.get("englishTest") ?? "").trim(),
+          budget: String(data.get("budget") ?? "").trim(),
+          message: String(data.get("message") ?? "").trim(),
+        };
+
+        try {
+          const res = await fetch("/api/consultation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const result = (await res.json().catch(() => ({ success: false }))) as {
+            success?: boolean;
+            message?: string;
+          };
+
+          if (!res.ok || result.success !== true) {
+            throw new Error(result.message || "Submission failed. Please try again.");
+          }
+
+          setState("done");
+        } catch (err) {
+          setState("idle");
+          setSubmitError(
+            err instanceof Error ? err.message : "Network error. Please try again."
+          );
+        }
       }}
       className="rounded-lg border border-border bg-card p-6 shadow-soft md:p-8"
     >
@@ -329,12 +363,19 @@ export function ConsultationForm() {
         </Field>
       </div>
 
+      {submitError && (
+        <div className="mt-5 flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span>{submitError}</span>
+        </div>
+      )}
+
       <Button type="submit" variant="gold" size="lg" className="mt-7 w-full" disabled={state === "loading"}>
         {state === "loading" && <Loader2 className="size-4 animate-spin" />}
         {state === "loading" ? "Submitting…" : "Request Free Consultation"}
       </Button>
       <p className="mt-4 text-xs text-muted-foreground">
-        Prototype form — no data is stored, sent or emailed in this phase.
+        Your details are submitted to our counselling team via a secure workflow.
       </p>
     </form>
   );
