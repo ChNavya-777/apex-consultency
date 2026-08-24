@@ -73,8 +73,7 @@ function Consultation() {
             </div>
 
             <Note>
-              {PROTOTYPE_NOTE} This form is a front-end prototype — submissions are not stored or
-              sent anywhere.
+              Your details are submitted to our counselling team through a secure workflow.
             </Note>
           </aside>
         </div>
