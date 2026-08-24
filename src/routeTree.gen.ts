@@ -18,6 +18,7 @@ import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as SuccessStoriesRouteImport } from './routes/success-stories'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
 import { Route as DestinationsIndexRouteImport } from './routes/destinations.index'
 import { Route as DestinationsSlugRouteImport } from './routes/destinations.$slug'
 import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
@@ -70,6 +71,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiConsultationRoute = ApiConsultationRouteImport.update({
+  id: '/api/consultation',
+  path: '/api/consultation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DestinationsIndexRoute = DestinationsIndexRouteImport.update({
   id: '/destinations/',
   path: '/destinations/',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/terms': typeof TermsRoute
+  '/api/consultation': typeof ApiConsultationRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/terms': typeof TermsRoute
+  '/api/consultation': typeof ApiConsultationRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/terms': typeof TermsRoute
+  '/api/consultation': typeof ApiConsultationRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/success-stories'
     | '/terms'
+    | '/api/consultation'
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/universities/$slug'
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/success-stories'
     | '/terms'
+    | '/api/consultation'
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/universities/$slug'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/success-stories'
     | '/terms'
+    | '/api/consultation'
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/universities/$slug'
@@ -217,6 +229,7 @@ export interface RootRouteChildren {
   ServicesRoute: typeof ServicesRoute
   SuccessStoriesRoute: typeof SuccessStoriesRoute
   TermsRoute: typeof TermsRoute
+  ApiConsultationRoute: typeof ApiConsultationRoute
   DestinationsSlugRoute: typeof DestinationsSlugRoute
   ResourcesSlugRoute: typeof ResourcesSlugRoute
   UniversitiesSlugRoute: typeof UniversitiesSlugRoute
@@ -290,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/consultation': {
+      id: '/api/consultation'
+      path: '/api/consultation'
+      fullPath: '/api/consultation'
+      preLoaderRoute: typeof ApiConsultationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/destinations/': {
       id: '/destinations/'
       path: '/destinations'
@@ -345,6 +365,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServicesRoute: ServicesRoute,
   SuccessStoriesRoute: SuccessStoriesRoute,
   TermsRoute: TermsRoute,
+  ApiConsultationRoute: ApiConsultationRoute,
   DestinationsSlugRoute: DestinationsSlugRoute,
   ResourcesSlugRoute: ResourcesSlugRoute,
   UniversitiesSlugRoute: UniversitiesSlugRoute,
