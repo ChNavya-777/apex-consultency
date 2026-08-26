@@ -1,8 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-const WEBHOOK_URL =
-  "https://benzz123.app.n8n.cloud/webhook/eca9cb6a-a2a4-46ce-b931-19d490499a15";
+/**
+ * Consultation submissions are forwarded server-side to the Google Apps Script
+ * Web App (which writes to the client's Google Sheet). Proxying avoids browser
+ * CORS restrictions — Apps Script does not return CORS headers, so a direct
+ * browser fetch cannot read the success response.
+ */
+const APPS_SCRIPT_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycbwx1NhImXQ9HAC-zSzkkt56ZJteTH7-wN_Q-1nk4quf1SYMQZIiKk7yU2x-6--5xc-4/exec";
 
 const consultationSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required."),
@@ -47,32 +53,33 @@ export const Route = createFileRoute("/api/consultation")({
         }
 
         const data = parsed.data;
+        // Property names expected by the Apps Script Web App.
         const payload = {
-          full_name: data.fullName,
+          fullName: data.fullName,
           phone: data.phone,
           email: data.email,
-          current_degree: data.degree,
-          branch_specialisation: data.branch,
-          graduation_year: data.graduationYear,
-          cgpa_percentage: data.cgpa,
-          preferred_country: data.country,
-          preferred_course: data.course,
-          preferred_intake: data.intake,
-          ielts_pte_status: data.englishTest,
-          budget_range: data.budget,
-          additional_information: data.message,
+          currentDegree: data.degree,
+          branch: data.branch,
+          graduationYear: data.graduationYear,
+          cgpa: data.cgpa,
+          preferredCountry: data.country,
+          preferredCourse: data.course,
+          preferredIntake: data.intake,
+          ieltsPteStatus: data.englishTest,
+          budgetRange: data.budget,
+          additionalInfo: data.message,
         };
 
         try {
-          const response = await fetch(WEBHOOK_URL, {
+          const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
+            redirect: "follow",
           });
 
           if (!response.ok) {
-            const text = await response.text().catch(() => "Unknown webhook error");
-            console.error(`n8n webhook failed (${response.status}): ${text}`);
+            console.error(`Apps Script web app failed (${response.status})`);
             return Response.json(
               {
                 success: false,
@@ -82,10 +89,27 @@ export const Route = createFileRoute("/api/consultation")({
             );
           }
 
+          // Treat the submission as successful only when the Apps Script
+          // response explicitly reports success.
+          const result = (await response.json().catch(() => null)) as
+            | { success?: boolean; message?: string }
+            | null;
+
+          if (!result || result.success !== true) {
+            console.error("Apps Script web app did not confirm success:", result);
+            return Response.json(
+              {
+                success: false,
+                message: "Your request could not be confirmed. Please try again.",
+              },
+              { status: 502 }
+            );
+          }
+
           return Response.json({ success: true });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Network error";
-          console.error("n8n webhook network error:", message);
+          console.error("Apps Script web app network error:", message);
           return Response.json(
             { success: false, message: "Network error. Please try again." },
             { status: 502 }
