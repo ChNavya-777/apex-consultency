@@ -139,7 +139,8 @@ export async function verifySignature(
   return candidates.some((candidate) =>
     expected.some(
       (exp) =>
-        timingSafeEqual(candidate, exp) || timingSafeEqual(candidate.toLowerCase(), exp.toLowerCase()),
+        timingSafeEqual(candidate, exp) ||
+        timingSafeEqual(candidate.toLowerCase(), exp.toLowerCase()),
     ),
   );
 }
