@@ -107,6 +107,33 @@ function SuccessPanel({ title, text }: { title: string; text: string }) {
   );
 }
 
+/**
+ * DayOtter booking link — PLACEHOLDER.
+ * Replace with the real DayOtter booking URL when available; no other part
+ * of the consultation flow needs to change.
+ */
+const DAYOTTER_BOOKING_URL = "#book-a-session";
+
+function ConsultationSuccessPanel() {
+  return (
+    <div className="rounded-lg border border-border bg-card p-8 text-center shadow-soft" role="status">
+      <span className="mx-auto grid size-14 place-items-center rounded-full bg-secondary text-brand-blue">
+        <CheckCircle2 className="size-7" aria-hidden="true" />
+      </span>
+      <h3 className="mt-5 font-display text-xl font-bold">Consultation Request Received</h3>
+      <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+        Your details have been submitted successfully. Choose a convenient time to speak with our
+        counsellor.
+      </p>
+      <div className="mt-6">
+        <Button asChild variant="gold" size="lg">
+          <a href={DAYOTTER_BOOKING_URL}>Book a Session</a>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 type Errors = Record<string, string>;
 
 function validate(data: FormData, required: string[]): Errors {
@@ -203,12 +230,7 @@ export function ConsultationForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (state === "done") {
-    return (
-      <SuccessPanel
-        title="Thank you! Your consultation request has been submitted successfully."
-        text="Our team will get in touch with you soon."
-      />
-    );
+    return <ConsultationSuccessPanel />;
   }
 
   return (
