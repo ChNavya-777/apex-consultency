@@ -410,6 +410,7 @@ export function ConsultationForm() {
             throw new Error(result.message || "Submission failed. Please try again.");
           }
 
+          setSubmittedEmail(payload.email);
           setState("done");
         } catch (err) {
           setState("idle");
