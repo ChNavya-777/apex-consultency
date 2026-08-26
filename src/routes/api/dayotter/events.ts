@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/dayotter/events")({
         }
 
         const { getRecentEvents } = await import("@/lib/dayotter.server");
-        return Response.json({ success: true, events: getRecentEvents() });
+        return Response.json({ success: true, events: await getRecentEvents() });
       },
     },
   },
