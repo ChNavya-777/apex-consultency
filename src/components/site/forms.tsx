@@ -95,7 +95,10 @@ function SelectInput({
 
 function SuccessPanel({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-8 text-center shadow-soft" role="status">
+    <div
+      className="rounded-lg border border-border bg-card p-8 text-center shadow-soft"
+      role="status"
+    >
       <span className="mx-auto grid size-14 place-items-center rounded-full bg-secondary text-brand-blue">
         <CheckCircle2 className="size-7" aria-hidden="true" />
       </span>
@@ -119,8 +122,7 @@ function SuccessPanel({ title, text }: { title: string; text: string }) {
  * clicks on elements with [data-dayotter-popup] and opens this URL in a
  * modal over the APEX page.
  */
-const DAYOTTER_BOOKING_URL =
-  "https://dayotter.com/team/apex-8362/session-meeting-8630";
+const DAYOTTER_BOOKING_URL = "https://dayotter.com/team/apex-8362/session-meeting-8630";
 
 function ConsultationSuccessPanel() {
   // The DayOtter embed script loads on the consultation page and scans the DOM
@@ -147,7 +149,10 @@ function ConsultationSuccessPanel() {
   }, []);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-8 text-center shadow-soft" role="status">
+    <div
+      className="rounded-lg border border-border bg-card p-8 text-center shadow-soft"
+      role="status"
+    >
       <span className="mx-auto grid size-14 place-items-center rounded-full bg-secondary text-brand-blue">
         <CheckCircle2 className="size-7" aria-hidden="true" />
       </span>
@@ -226,18 +231,46 @@ export function ContactForm() {
           <Input id="name" name="name" autoComplete="name" aria-invalid={!!errors["name"]} />
         </Field>
         <Field id="phone" label="Phone number" required error={errors["phone"]}>
-          <Input id="phone" name="phone" type="tel" autoComplete="tel" aria-invalid={!!errors["phone"]} />
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            aria-invalid={!!errors["phone"]}
+          />
         </Field>
         <Field id="email" label="Email" required error={errors["email"]} className="sm:col-span-2">
-          <Input id="email" name="email" type="email" autoComplete="email" aria-invalid={!!errors["email"]} />
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            aria-invalid={!!errors["email"]}
+          />
         </Field>
         <Field id="country" label="Interested country">
-          <SelectInput id="country" name="country" options={countryOptions} placeholder="Select a country" />
+          <SelectInput
+            id="country"
+            name="country"
+            options={countryOptions}
+            placeholder="Select a country"
+          />
         </Field>
         <Field id="course" label="Preferred course">
-          <SelectInput id="course" name="course" options={courseOptions} placeholder="Select a course" />
+          <SelectInput
+            id="course"
+            name="course"
+            options={courseOptions}
+            placeholder="Select a course"
+          />
         </Field>
-        <Field id="message" label="Message" required error={errors["message"]} className="sm:col-span-2">
+        <Field
+          id="message"
+          label="Message"
+          required
+          error={errors["message"]}
+          className="sm:col-span-2"
+        >
           <Textarea
             id="message"
             name="message"
@@ -248,7 +281,13 @@ export function ContactForm() {
         </Field>
       </div>
 
-      <Button type="submit" variant="gold" size="lg" className="mt-7 w-full" disabled={state === "loading"}>
+      <Button
+        type="submit"
+        variant="gold"
+        size="lg"
+        className="mt-7 w-full"
+        disabled={state === "loading"}
+      >
         {state === "loading" && <Loader2 className="size-4 animate-spin" />}
         {state === "loading" ? "Sending…" : "Send Enquiry"}
       </Button>
@@ -272,14 +311,7 @@ export function ConsultationForm() {
       onSubmit={async (e) => {
         e.preventDefault();
         const data = new FormData(e.currentTarget);
-        const found = validate(data, [
-          "fullName",
-          "phone",
-          "email",
-          "degree",
-          "country",
-          "intake",
-        ]);
+        const found = validate(data, ["fullName", "phone", "email", "degree", "country", "intake"]);
         setErrors(found);
         if (Object.keys(found).length > 0) return;
 
@@ -321,9 +353,7 @@ export function ConsultationForm() {
           setState("done");
         } catch (err) {
           setState("idle");
-          setSubmitError(
-            err instanceof Error ? err.message : "Network error. Please try again."
-          );
+          setSubmitError(err instanceof Error ? err.message : "Network error. Please try again.");
         }
       }}
       className="rounded-lg border border-border bg-card p-6 shadow-soft md:p-8"
@@ -336,13 +366,30 @@ export function ConsultationForm() {
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
         <Field id="fullName" label="Full name" required error={errors["fullName"]}>
-          <Input id="fullName" name="fullName" autoComplete="name" aria-invalid={!!errors["fullName"]} />
+          <Input
+            id="fullName"
+            name="fullName"
+            autoComplete="name"
+            aria-invalid={!!errors["fullName"]}
+          />
         </Field>
         <Field id="phone" label="Phone number" required error={errors["phone"]}>
-          <Input id="phone" name="phone" type="tel" autoComplete="tel" aria-invalid={!!errors["phone"]} />
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            aria-invalid={!!errors["phone"]}
+          />
         </Field>
         <Field id="email" label="Email" required error={errors["email"]} className="sm:col-span-2">
-          <Input id="email" name="email" type="email" autoComplete="email" aria-invalid={!!errors["email"]} />
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            aria-invalid={!!errors["email"]}
+          />
         </Field>
         <Field id="degree" label="Current degree" required error={errors["degree"]}>
           <SelectInput
@@ -358,7 +405,12 @@ export function ConsultationForm() {
           <Input id="branch" name="branch" placeholder="e.g. Computer Science" />
         </Field>
         <Field id="graduationYear" label="Graduation year">
-          <Input id="graduationYear" name="graduationYear" inputMode="numeric" placeholder="e.g. 2026" />
+          <Input
+            id="graduationYear"
+            name="graduationYear"
+            inputMode="numeric"
+            placeholder="e.g. 2026"
+          />
         </Field>
         <Field id="cgpa" label="CGPA / percentage">
           <Input id="cgpa" name="cgpa" placeholder="e.g. 7.8 or 72%" />
@@ -374,14 +426,24 @@ export function ConsultationForm() {
           />
         </Field>
         <Field id="course" label="Preferred course">
-          <SelectInput id="course" name="course" options={courseOptions} placeholder="Select a course" />
+          <SelectInput
+            id="course"
+            name="course"
+            options={courseOptions}
+            placeholder="Select a course"
+          />
         </Field>
         <Field id="intake" label="Preferred intake" required error={errors["intake"]}>
           <SelectInput
             id="intake"
             name="intake"
             required
-            options={["Fall / September 2026", "January 2027", "Fall / September 2027", "Not decided yet"]}
+            options={[
+              "Fall / September 2026",
+              "January 2027",
+              "Fall / September 2027",
+              "Not decided yet",
+            ]}
             placeholder="Select an intake"
             ariaInvalid={!!errors["intake"]}
           />
@@ -390,7 +452,12 @@ export function ConsultationForm() {
           <SelectInput
             id="englishTest"
             name="englishTest"
-            options={["Not booked yet", "Booked, not taken", "Taken — awaiting result", "Score available"]}
+            options={[
+              "Not booked yet",
+              "Booked, not taken",
+              "Taken — awaiting result",
+              "Score available",
+            ]}
             placeholder="Select status"
           />
         </Field>
@@ -425,7 +492,13 @@ export function ConsultationForm() {
         </div>
       )}
 
-      <Button type="submit" variant="gold" size="lg" className="mt-7 w-full" disabled={state === "loading"}>
+      <Button
+        type="submit"
+        variant="gold"
+        size="lg"
+        className="mt-7 w-full"
+        disabled={state === "loading"}
+      >
         {state === "loading" && <Loader2 className="size-4 animate-spin" />}
         {state === "loading" ? "Submitting…" : "Request Free Consultation"}
       </Button>
