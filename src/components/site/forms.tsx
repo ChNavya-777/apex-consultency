@@ -108,11 +108,12 @@ function SuccessPanel({ title, text }: { title: string; text: string }) {
 }
 
 /**
- * DayOtter booking link — PLACEHOLDER.
+ * DayOtter booking link.
  * Replace with the real DayOtter booking URL when available; no other part
  * of the consultation flow needs to change.
  */
-const DAYOTTER_BOOKING_URL = "#book-a-session";
+const DAYOTTER_BOOKING_URL =
+  "https://dayotter.com/team/apex-8362/session-meeting-8630";
 
 function ConsultationSuccessPanel() {
   return (
