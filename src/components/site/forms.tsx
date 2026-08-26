@@ -123,6 +123,29 @@ const DAYOTTER_BOOKING_URL =
   "https://dayotter.com/team/apex-8362/session-meeting-8630";
 
 function ConsultationSuccessPanel() {
+  // The DayOtter embed script loads on the consultation page and scans the DOM
+  // for [data-dayotter-popup] elements. Because this panel is rendered after a
+  // successful form submission (not on initial page load), we ask DayOtter to
+  // rescan so the popup trigger is attached to the Book a Session button.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.dayotter?.scan) {
+      window.dayotter.scan();
+      return;
+    }
+    // If the async embed script hasn't loaded yet, retry briefly.
+    const start = Date.now();
+    const interval = window.setInterval(() => {
+      if (window.dayotter?.scan) {
+        window.dayotter.scan();
+        window.clearInterval(interval);
+      } else if (Date.now() - start > 5000) {
+        window.clearInterval(interval);
+      }
+    }, 250);
+    return () => window.clearInterval(interval);
+  }, []);
+
   return (
     <div className="rounded-lg border border-border bg-card p-8 text-center shadow-soft" role="status">
       <span className="mx-auto grid size-14 place-items-center rounded-full bg-secondary text-brand-blue">
