@@ -26,7 +26,7 @@ export const Route = createFileRoute("/api/dayotter/booking-status")({
         }
 
         const { getEventsForEmail } = await import("@/lib/dayotter.server");
-        const events = getEventsForEmail(parsed.data.email);
+        const events = await getEventsForEmail(parsed.data.email);
         const created = events.find((e) => e.event === "booking.created");
         const cancelled = events.find((e) => e.event === "booking.cancelled");
         const rescheduled = events.find((e) => e.event === "booking.rescheduled");
