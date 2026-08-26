@@ -23,24 +23,28 @@ export type StoredBookingEvent = {
 const MAX_EVENTS = 50;
 
 /**
- * Best-effort in-process store. The server runs on stateless workers, so this
- * is intentionally a debugging/inspection buffer for the first real bookings
- * (paired with full console logging), not durable storage. Durable persistence
- * comes later, once the real payload shape is known.
+ * Durable storage lives in the Lovable Cloud database (table
+ * `public.dayotter_booking_events`), written by the production webhook and read
+ * by the booking-status endpoint. Both run server-side with the service role,
+ * so the same records are visible from any deployment/worker instance. The
+ * table is private: RLS is enabled with no policies and only the service role
+ * has grants.
  */
-type Store = {
-  recent: StoredBookingEvent[];
-  byEmail: Map<string, StoredBookingEvent[]>;
+async function db() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
+type EventRow = {
+  event: string;
+  payload: unknown;
+  received_at: string;
 };
 
-const globalRef = globalThis as unknown as { __apexDayotterStore?: Store };
-
-function getStore(): Store {
-  if (!globalRef.__apexDayotterStore) {
-    globalRef.__apexDayotterStore = { recent: [], byEmail: new Map() };
-  }
-  return globalRef.__apexDayotterStore;
+function toStored(row: EventRow): StoredBookingEvent {
+  return { event: row.event, receivedAt: row.received_at, payload: row.payload };
 }
+
 
 /**
  * Collect every email-looking string found anywhere in the payload, so a
