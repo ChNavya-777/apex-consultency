@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { destinations } from "@/data/destinations";
 import { PROTOTYPE_NOTE } from "@/data/site";
 import { cn } from "@/lib/utils";
+
+declare global {
+  interface Window {
+    dayotter?: { scan: () => void; open: (url: string) => void };
+  }
+}
 
 const courseOptions = [
   "MS in Computer Science",
