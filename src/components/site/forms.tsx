@@ -108,9 +108,10 @@ function SuccessPanel({ title, text }: { title: string; text: string }) {
 }
 
 /**
- * DayOtter booking link.
- * Replace with the real DayOtter booking URL when available; no other part
- * of the consultation flow needs to change.
+ * DayOtter booking URL for the official popup embed.
+ * The DayOtter embed script (loaded on the consultation page) listens for
+ * clicks on elements with [data-dayotter-popup] and opens this URL in a
+ * modal over the APEX page.
  */
 const DAYOTTER_BOOKING_URL =
   "https://dayotter.com/team/apex-8362/session-meeting-8630";
@@ -128,7 +129,9 @@ function ConsultationSuccessPanel() {
       </p>
       <div className="mt-6">
         <Button asChild variant="gold" size="lg">
-          <a href={DAYOTTER_BOOKING_URL}>Book a Session</a>
+          <button type="button" data-dayotter-popup data-url={DAYOTTER_BOOKING_URL}>
+            Book a Session
+          </button>
         </Button>
       </div>
     </div>
