@@ -244,9 +244,15 @@ export async function handleDayotterWebhook(request: Request): Promise<Response>
     return Response.json({ success: true, handled: false });
   }
 
-  const stored = recordBookingEvent(event, payload);
   // Full verified payload preserved for inspection. The secret is never logged.
   console.log(`DayOtter webhook verified [${event}] FULL PAYLOAD:`, JSON.stringify(payload));
 
-  return Response.json({ success: true, handled: true, event, receivedAt: stored.receivedAt });
+  try {
+    const stored = await recordBookingEvent(event, payload);
+    return Response.json({ success: true, handled: true, event, receivedAt: stored.receivedAt });
+  } catch {
+    // Signature was valid but durable storage failed — tell DayOtter to retry.
+    return Response.json({ success: false, message: "Storage error." }, { status: 500 });
+  }
+
 }
