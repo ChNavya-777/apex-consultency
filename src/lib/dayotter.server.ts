@@ -45,7 +45,6 @@ function toStored(row: EventRow): StoredBookingEvent {
   return { event: row.event, receivedAt: row.received_at, payload: row.payload };
 }
 
-
 /**
  * Collect every email-looking string found anywhere in the payload, so a
  * booking can be associated with the current student without assuming
@@ -121,7 +120,6 @@ export async function getEventsForEmail(email: string): Promise<StoredBookingEve
   }
   return (data ?? []).map((row) => toStored(row as EventRow));
 }
-
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -254,5 +252,4 @@ export async function handleDayotterWebhook(request: Request): Promise<Response>
     // Signature was valid but durable storage failed — tell DayOtter to retry.
     return Response.json({ success: false, message: "Storage error." }, { status: 500 });
   }
-
 }
