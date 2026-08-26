@@ -67,32 +67,61 @@ export function collectEmails(value: unknown, found = new Set<string>()): Set<st
   return found;
 }
 
-export function recordBookingEvent(event: string, payload: unknown): StoredBookingEvent {
-  const stored: StoredBookingEvent = {
+/**
+ * Persist a verified event. The complete payload is stored verbatim in a JSONB
+ * column — no renaming, reshaping, or field guessing. `emails` holds the email
+ * strings found anywhere in the payload and exists only so a booking can be
+ * matched to the student who submitted the consultation form.
+ */
+export async function recordBookingEvent(
+  event: string,
+  payload: unknown,
+): Promise<StoredBookingEvent> {
+  const receivedAt = new Date().toISOString();
+  const emails = Array.from(collectEmails(payload));
+  const client = await db();
+  const { error } = await client.from("dayotter_booking_events").insert({
     event,
-    receivedAt: new Date().toISOString(),
-    payload,
-  };
-  const store = getStore();
-  store.recent.unshift(stored);
-  if (store.recent.length > MAX_EVENTS) store.recent.length = MAX_EVENTS;
-
-  for (const email of collectEmails(payload)) {
-    const list = store.byEmail.get(email) ?? [];
-    list.unshift(stored);
-    if (list.length > MAX_EVENTS) list.length = MAX_EVENTS;
-    store.byEmail.set(email, list);
+    payload: payload as never,
+    emails,
+    received_at: receivedAt,
+  });
+  if (error) {
+    console.error("DayOtter webhook: failed to persist verified event", error.message);
+    throw new Error("Failed to persist booking event.");
   }
-  return stored;
+  return { event, receivedAt, payload };
 }
 
-export function getRecentEvents(): StoredBookingEvent[] {
-  return getStore().recent;
+export async function getRecentEvents(): Promise<StoredBookingEvent[]> {
+  const client = await db();
+  const { data, error } = await client
+    .from("dayotter_booking_events")
+    .select("event, payload, received_at")
+    .order("received_at", { ascending: false })
+    .limit(MAX_EVENTS);
+  if (error) {
+    console.error("DayOtter: failed to read events", error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => toStored(row as EventRow));
 }
 
-export function getEventsForEmail(email: string): StoredBookingEvent[] {
-  return getStore().byEmail.get(email.trim().toLowerCase()) ?? [];
+export async function getEventsForEmail(email: string): Promise<StoredBookingEvent[]> {
+  const client = await db();
+  const { data, error } = await client
+    .from("dayotter_booking_events")
+    .select("event, payload, received_at")
+    .contains("emails", [email.trim().toLowerCase()])
+    .order("received_at", { ascending: false })
+    .limit(MAX_EVENTS);
+  if (error) {
+    console.error("DayOtter: failed to read events for student", error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => toStored(row as EventRow));
 }
+
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
