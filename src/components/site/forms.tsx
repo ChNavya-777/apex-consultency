@@ -124,53 +124,7 @@ function SuccessPanel({ title, text }: { title: string; text: string }) {
  */
 const DAYOTTER_BOOKING_URL = "https://dayotter.com/team/apex-8362/session-meeting-8630";
 
-type BookingStatus = {
-  status: "none" | "confirmed" | "cancelled";
-  booking: { event: string; receivedAt: string; payload: unknown } | null;
-};
-
-/**
- * Booking confirmation is decided ONLY by the server, from a signature-verified
- * DayOtter `booking.created` webhook matched to this student's email. Opening or
- * closing the popup never marks the consultation as booked.
- */
-function useBookingStatus(email: string) {
-  const [state, setState] = useState<BookingStatus>({ status: "none", booking: null });
-
-  useEffect(() => {
-    if (!email) return;
-    let cancelled = false;
-
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/dayotter/booking-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        });
-        const data = (await res.json()) as BookingStatus & { success?: boolean };
-        if (!cancelled && data.success) {
-          setState({ status: data.status, booking: data.booking });
-        }
-      } catch {
-        /* transient network issue — keep polling */
-      }
-    };
-
-    void poll();
-    const interval = window.setInterval(poll, 10000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [email]);
-
-  return state;
-}
-
-function ConsultationSuccessPanel({ email }: { email: string }) {
-  const booking = useBookingStatus(email);
-
+function ConsultationSuccessPanel() {
   // The DayOtter embed script loads on the consultation page and scans the DOM
   // for [data-dayotter-popup] elements. Because this panel is rendered after a
   // successful form submission (not on initial page load), we ask DayOtter to
@@ -214,19 +168,6 @@ function ConsultationSuccessPanel({ email }: { email: string }) {
           </button>
         </Button>
       </div>
-
-      {booking.status === "confirmed" && booking.booking && (
-        <div className="mt-6 rounded-md border border-border bg-surface p-4 text-left">
-          <p className="font-display text-sm font-bold">Booking Confirmed</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Received {new Date(booking.booking.receivedAt).toLocaleString()}. Session details as
-            provided by DayOtter:
-          </p>
-          <pre className="mt-3 max-h-64 overflow-auto rounded bg-card p-3 text-xs leading-relaxed text-muted-foreground">
-            {JSON.stringify(booking.booking.payload, null, 2)}
-          </pre>
-        </div>
-      )}
     </div>
   );
 }
@@ -359,10 +300,9 @@ export function ConsultationForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submittedEmail, setSubmittedEmail] = useState("");
 
   if (state === "done") {
-    return <ConsultationSuccessPanel email={submittedEmail} />;
+    return <ConsultationSuccessPanel />;
   }
 
   return (
@@ -410,7 +350,6 @@ export function ConsultationForm() {
             throw new Error(result.message || "Submission failed. Please try again.");
           }
 
-          setSubmittedEmail(payload.email);
           setState("done");
         } catch (err) {
           setState("idle");

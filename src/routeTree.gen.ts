@@ -25,10 +25,6 @@ import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
 import { Route as ResourcesSlugRouteImport } from './routes/resources.$slug'
 import { Route as UniversitiesIndexRouteImport } from './routes/universities.index'
 import { Route as UniversitiesSlugRouteImport } from './routes/universities.$slug'
-import { Route as ApiDayotterBookingStatusRouteImport } from './routes/api/dayotter/booking-status'
-import { Route as ApiDayotterEventsRouteImport } from './routes/api/dayotter/events'
-import { Route as ApiDayotterWebhookRouteImport } from './routes/api/dayotter/webhook'
-import { Route as ApiPublicDayotterWebhookRouteImport } from './routes/api/public/dayotter/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -110,28 +106,6 @@ const UniversitiesSlugRoute = UniversitiesSlugRouteImport.update({
   path: '/universities/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiDayotterBookingStatusRoute =
-  ApiDayotterBookingStatusRouteImport.update({
-    id: '/api/dayotter/booking-status',
-    path: '/api/dayotter/booking-status',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiDayotterEventsRoute = ApiDayotterEventsRouteImport.update({
-  id: '/api/dayotter/events',
-  path: '/api/dayotter/events',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiDayotterWebhookRoute = ApiDayotterWebhookRouteImport.update({
-  id: '/api/dayotter/webhook',
-  path: '/api/dayotter/webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicDayotterWebhookRoute =
-  ApiPublicDayotterWebhookRouteImport.update({
-    id: '/api/public/dayotter/webhook',
-    path: '/api/public/dayotter/webhook',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -150,10 +124,6 @@ export interface FileRoutesByFullPath {
   '/destinations/': typeof DestinationsIndexRoute
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
-  '/api/dayotter/booking-status': typeof ApiDayotterBookingStatusRoute
-  '/api/dayotter/events': typeof ApiDayotterEventsRoute
-  '/api/dayotter/webhook': typeof ApiDayotterWebhookRoute
-  '/api/public/dayotter/webhook': typeof ApiPublicDayotterWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -172,10 +142,6 @@ export interface FileRoutesByTo {
   '/destinations': typeof DestinationsIndexRoute
   '/resources': typeof ResourcesIndexRoute
   '/universities': typeof UniversitiesIndexRoute
-  '/api/dayotter/booking-status': typeof ApiDayotterBookingStatusRoute
-  '/api/dayotter/events': typeof ApiDayotterEventsRoute
-  '/api/dayotter/webhook': typeof ApiDayotterWebhookRoute
-  '/api/public/dayotter/webhook': typeof ApiPublicDayotterWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -195,10 +161,6 @@ export interface FileRoutesById {
   '/destinations/': typeof DestinationsIndexRoute
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
-  '/api/dayotter/booking-status': typeof ApiDayotterBookingStatusRoute
-  '/api/dayotter/events': typeof ApiDayotterEventsRoute
-  '/api/dayotter/webhook': typeof ApiDayotterWebhookRoute
-  '/api/public/dayotter/webhook': typeof ApiPublicDayotterWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -219,10 +181,6 @@ export interface FileRouteTypes {
     | '/destinations/'
     | '/resources/'
     | '/universities/'
-    | '/api/dayotter/booking-status'
-    | '/api/dayotter/events'
-    | '/api/dayotter/webhook'
-    | '/api/public/dayotter/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -241,10 +199,6 @@ export interface FileRouteTypes {
     | '/destinations'
     | '/resources'
     | '/universities'
-    | '/api/dayotter/booking-status'
-    | '/api/dayotter/events'
-    | '/api/dayotter/webhook'
-    | '/api/public/dayotter/webhook'
   id:
     | '__root__'
     | '/'
@@ -263,10 +217,6 @@ export interface FileRouteTypes {
     | '/destinations/'
     | '/resources/'
     | '/universities/'
-    | '/api/dayotter/booking-status'
-    | '/api/dayotter/events'
-    | '/api/dayotter/webhook'
-    | '/api/public/dayotter/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -286,10 +236,6 @@ export interface RootRouteChildren {
   DestinationsIndexRoute: typeof DestinationsIndexRoute
   ResourcesIndexRoute: typeof ResourcesIndexRoute
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
-  ApiDayotterBookingStatusRoute: typeof ApiDayotterBookingStatusRoute
-  ApiDayotterEventsRoute: typeof ApiDayotterEventsRoute
-  ApiDayotterWebhookRoute: typeof ApiDayotterWebhookRoute
-  ApiPublicDayotterWebhookRoute: typeof ApiPublicDayotterWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -406,34 +352,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UniversitiesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/dayotter/booking-status': {
-      id: '/api/dayotter/booking-status'
-      path: '/api/dayotter/booking-status'
-      fullPath: '/api/dayotter/booking-status'
-      preLoaderRoute: typeof ApiDayotterBookingStatusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/dayotter/events': {
-      id: '/api/dayotter/events'
-      path: '/api/dayotter/events'
-      fullPath: '/api/dayotter/events'
-      preLoaderRoute: typeof ApiDayotterEventsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/dayotter/webhook': {
-      id: '/api/dayotter/webhook'
-      path: '/api/dayotter/webhook'
-      fullPath: '/api/dayotter/webhook'
-      preLoaderRoute: typeof ApiDayotterWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/dayotter/webhook': {
-      id: '/api/public/dayotter/webhook'
-      path: '/api/public/dayotter/webhook'
-      fullPath: '/api/public/dayotter/webhook'
-      preLoaderRoute: typeof ApiPublicDayotterWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -454,10 +372,6 @@ const rootRouteChildren: RootRouteChildren = {
   DestinationsIndexRoute: DestinationsIndexRoute,
   ResourcesIndexRoute: ResourcesIndexRoute,
   UniversitiesIndexRoute: UniversitiesIndexRoute,
-  ApiDayotterBookingStatusRoute: ApiDayotterBookingStatusRoute,
-  ApiDayotterEventsRoute: ApiDayotterEventsRoute,
-  ApiDayotterWebhookRoute: ApiDayotterWebhookRoute,
-  ApiPublicDayotterWebhookRoute: ApiPublicDayotterWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
