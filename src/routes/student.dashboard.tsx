@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { CalendarDays, Compass, UserRound } from "lucide-react";
 import {
   JourneyProgress,
-  SessionEmptyState,
   StudentCard,
   StudentHeading,
   StudentLayout,
@@ -10,6 +9,8 @@ import {
   useRequireStudent,
 } from "@/components/student/StudentShell";
 import { studentNav } from "@/components/student/nav";
+import { MeetingButton, SessionEmptyState, SessionStatusBadge } from "@/components/sessions/SessionUI";
+import { formatSessionDate, formatTimeRange, getStudentSessions } from "@/lib/sessions";
 
 const title = "Dashboard — APEX Student Portal";
 const description = "Track your study abroad journey, consultations and application progress in one place.";
@@ -31,6 +32,9 @@ function StudentDashboardPage() {
   const session = useRequireStudent();
   if (!session) return null;
 
+  /** Scoped to this student only. Empty until the booking source is connected. */
+  const nextSession = getStudentSessions(session.email).find((s) => s.status !== "completed");
+
   return (
     <StudentLayout session={session} nav={studentNav}>
       <StudentHeading
@@ -40,11 +44,55 @@ function StudentDashboardPage() {
 
       <div className="space-y-5">
         <StudentCard title="Your Study Abroad Journey" icon={Compass}>
-          <JourneyProgress note="Your journey status will appear here once your consultation information is connected." />
+          <JourneyProgress note="Your journey will update as your counselling process progresses." />
         </StudentCard>
 
-        <StudentCard title="Upcoming Consultation" icon={CalendarDays}>
-          <SessionEmptyState />
+        <StudentCard
+          title="Upcoming Consultation"
+          icon={CalendarDays}
+          action={
+            <Link
+              to="/student/sessions"
+              className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+            >
+              My Sessions
+            </Link>
+          }
+        >
+          {nextSession ? (
+            <div className="rounded-xl border border-border bg-surface/50 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Counsellor
+                  </p>
+                  <p className="font-display text-base font-semibold text-foreground">
+                    {nextSession.counsellorName}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatSessionDate(nextSession.startTime)} ·{" "}
+                    {formatTimeRange(nextSession.startTime, nextSession.endTime)}
+                  </p>
+                </div>
+                <SessionStatusBadge status={nextSession.status} />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  to="/student/sessions/$id"
+                  params={{ id: nextSession.bookingUid }}
+                  className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+                >
+                  View details
+                </Link>
+                <MeetingButton url={nextSession.meetingUrl} size="sm" />
+              </div>
+            </div>
+          ) : (
+            <SessionEmptyState
+              title="No upcoming consultation"
+              text="Your scheduled consultation will appear here once your booking is confirmed."
+            />
+          )}
         </StudentCard>
 
         <StudentCard

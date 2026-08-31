@@ -20,14 +20,12 @@ import { Route as SuccessStoriesRouteImport } from './routes/success-stories'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
-import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminStudentsRouteImport } from './routes/admin.students'
 import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
 import { Route as CounsellorDashboardRouteImport } from './routes/counsellor.dashboard'
 import { Route as CounsellorLoginRouteImport } from './routes/counsellor.login'
 import { Route as CounsellorProfileRouteImport } from './routes/counsellor.profile'
-import { Route as CounsellorSessionsRouteImport } from './routes/counsellor.sessions'
 import { Route as CounsellorStudentsRouteImport } from './routes/counsellor.students'
 import { Route as DestinationsIndexRouteImport } from './routes/destinations.index'
 import { Route as DestinationsSlugRouteImport } from './routes/destinations.$slug'
@@ -44,6 +42,10 @@ import { Route as UniversitiesIndexRouteImport } from './routes/universities.ind
 import { Route as UniversitiesSlugRouteImport } from './routes/universities.$slug'
 import { Route as AdminCounsellorsIndexRouteImport } from './routes/admin.counsellors.index'
 import { Route as AdminCounsellorsIdRouteImport } from './routes/admin.counsellors.$id'
+import { Route as AdminSessionsIndexRouteImport } from './routes/admin.sessions.index'
+import { Route as AdminSessionsIdRouteImport } from './routes/admin.sessions.$id'
+import { Route as CounsellorSessionsIndexRouteImport } from './routes/counsellor.sessions.index'
+import { Route as CounsellorSessionsIdRouteImport } from './routes/counsellor.sessions.$id'
 import { Route as StudentSessionsIndexRouteImport } from './routes/student.sessions.index'
 import { Route as StudentSessionsIdRouteImport } from './routes/student.sessions.$id'
 
@@ -102,11 +104,6 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminSessionsRoute = AdminSessionsRouteImport.update({
-  id: '/admin/sessions',
-  path: '/admin/sessions',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/admin/settings',
   path: '/admin/settings',
@@ -135,11 +132,6 @@ const CounsellorLoginRoute = CounsellorLoginRouteImport.update({
 const CounsellorProfileRoute = CounsellorProfileRouteImport.update({
   id: '/counsellor/profile',
   path: '/counsellor/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CounsellorSessionsRoute = CounsellorSessionsRouteImport.update({
-  id: '/counsellor/sessions',
-  path: '/counsellor/sessions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CounsellorStudentsRoute = CounsellorStudentsRouteImport.update({
@@ -222,6 +214,26 @@ const AdminCounsellorsIdRoute = AdminCounsellorsIdRouteImport.update({
   path: '/admin/counsellors/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSessionsIndexRoute = AdminSessionsIndexRouteImport.update({
+  id: '/admin/sessions/',
+  path: '/admin/sessions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSessionsIdRoute = AdminSessionsIdRouteImport.update({
+  id: '/admin/sessions/$id',
+  path: '/admin/sessions/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CounsellorSessionsIndexRoute = CounsellorSessionsIndexRouteImport.update({
+  id: '/counsellor/sessions/',
+  path: '/counsellor/sessions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CounsellorSessionsIdRoute = CounsellorSessionsIdRouteImport.update({
+  id: '/counsellor/sessions/$id',
+  path: '/counsellor/sessions/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentSessionsIndexRoute = StudentSessionsIndexRouteImport.update({
   id: '/student/sessions/',
   path: '/student/sessions/',
@@ -245,14 +257,12 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
-  '/admin/sessions': typeof AdminSessionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/profile': typeof CounsellorProfileRoute
-  '/counsellor/sessions': typeof CounsellorSessionsRoute
   '/counsellor/students': typeof CounsellorStudentsRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
@@ -268,8 +278,12 @@ export interface FileRoutesByFullPath {
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
+  '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
+  '/admin/sessions/': typeof AdminSessionsIndexRoute
+  '/counsellor/sessions/': typeof CounsellorSessionsIndexRoute
   '/student/sessions/': typeof StudentSessionsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -284,14 +298,12 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
-  '/admin/sessions': typeof AdminSessionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/profile': typeof CounsellorProfileRoute
-  '/counsellor/sessions': typeof CounsellorSessionsRoute
   '/counsellor/students': typeof CounsellorStudentsRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
@@ -307,8 +319,12 @@ export interface FileRoutesByTo {
   '/resources': typeof ResourcesIndexRoute
   '/universities': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
+  '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors': typeof AdminCounsellorsIndexRoute
+  '/admin/sessions': typeof AdminSessionsIndexRoute
+  '/counsellor/sessions': typeof CounsellorSessionsIndexRoute
   '/student/sessions': typeof StudentSessionsIndexRoute
 }
 export interface FileRoutesById {
@@ -324,14 +340,12 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
-  '/admin/sessions': typeof AdminSessionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/profile': typeof CounsellorProfileRoute
-  '/counsellor/sessions': typeof CounsellorSessionsRoute
   '/counsellor/students': typeof CounsellorStudentsRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
@@ -347,8 +361,12 @@ export interface FileRoutesById {
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
+  '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
+  '/admin/sessions/': typeof AdminSessionsIndexRoute
+  '/counsellor/sessions/': typeof CounsellorSessionsIndexRoute
   '/student/sessions/': typeof StudentSessionsIndexRoute
 }
 export interface FileRouteTypes {
@@ -365,14 +383,12 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/login'
-    | '/admin/sessions'
     | '/admin/settings'
     | '/admin/students'
     | '/api/consultation'
     | '/counsellor/dashboard'
     | '/counsellor/login'
     | '/counsellor/profile'
-    | '/counsellor/sessions'
     | '/counsellor/students'
     | '/destinations/$slug'
     | '/resources/$slug'
@@ -388,8 +404,12 @@ export interface FileRouteTypes {
     | '/resources/'
     | '/universities/'
     | '/admin/counsellors/$id'
+    | '/admin/sessions/$id'
+    | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
+    | '/admin/sessions/'
+    | '/counsellor/sessions/'
     | '/student/sessions/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -404,14 +424,12 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/login'
-    | '/admin/sessions'
     | '/admin/settings'
     | '/admin/students'
     | '/api/consultation'
     | '/counsellor/dashboard'
     | '/counsellor/login'
     | '/counsellor/profile'
-    | '/counsellor/sessions'
     | '/counsellor/students'
     | '/destinations/$slug'
     | '/resources/$slug'
@@ -427,8 +445,12 @@ export interface FileRouteTypes {
     | '/resources'
     | '/universities'
     | '/admin/counsellors/$id'
+    | '/admin/sessions/$id'
+    | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors'
+    | '/admin/sessions'
+    | '/counsellor/sessions'
     | '/student/sessions'
   id:
     | '__root__'
@@ -443,14 +465,12 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/login'
-    | '/admin/sessions'
     | '/admin/settings'
     | '/admin/students'
     | '/api/consultation'
     | '/counsellor/dashboard'
     | '/counsellor/login'
     | '/counsellor/profile'
-    | '/counsellor/sessions'
     | '/counsellor/students'
     | '/destinations/$slug'
     | '/resources/$slug'
@@ -466,8 +486,12 @@ export interface FileRouteTypes {
     | '/resources/'
     | '/universities/'
     | '/admin/counsellors/$id'
+    | '/admin/sessions/$id'
+    | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
+    | '/admin/sessions/'
+    | '/counsellor/sessions/'
     | '/student/sessions/'
   fileRoutesById: FileRoutesById
 }
@@ -483,14 +507,12 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminLoginRoute: typeof AdminLoginRoute
-  AdminSessionsRoute: typeof AdminSessionsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminStudentsRoute: typeof AdminStudentsRoute
   ApiConsultationRoute: typeof ApiConsultationRoute
   CounsellorDashboardRoute: typeof CounsellorDashboardRoute
   CounsellorLoginRoute: typeof CounsellorLoginRoute
   CounsellorProfileRoute: typeof CounsellorProfileRoute
-  CounsellorSessionsRoute: typeof CounsellorSessionsRoute
   CounsellorStudentsRoute: typeof CounsellorStudentsRoute
   DestinationsSlugRoute: typeof DestinationsSlugRoute
   ResourcesSlugRoute: typeof ResourcesSlugRoute
@@ -506,8 +528,12 @@ export interface RootRouteChildren {
   ResourcesIndexRoute: typeof ResourcesIndexRoute
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
   AdminCounsellorsIdRoute: typeof AdminCounsellorsIdRoute
+  AdminSessionsIdRoute: typeof AdminSessionsIdRoute
+  CounsellorSessionsIdRoute: typeof CounsellorSessionsIdRoute
   StudentSessionsIdRoute: typeof StudentSessionsIdRoute
   AdminCounsellorsIndexRoute: typeof AdminCounsellorsIndexRoute
+  AdminSessionsIndexRoute: typeof AdminSessionsIndexRoute
+  CounsellorSessionsIndexRoute: typeof CounsellorSessionsIndexRoute
   StudentSessionsIndexRoute: typeof StudentSessionsIndexRoute
 }
 
@@ -590,13 +616,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/sessions': {
-      id: '/admin/sessions'
-      path: '/admin/sessions'
-      fullPath: '/admin/sessions'
-      preLoaderRoute: typeof AdminSessionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin/settings': {
       id: '/admin/settings'
       path: '/admin/settings'
@@ -637,13 +656,6 @@ declare module '@tanstack/react-router' {
       path: '/counsellor/profile'
       fullPath: '/counsellor/profile'
       preLoaderRoute: typeof CounsellorProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/counsellor/sessions': {
-      id: '/counsellor/sessions'
-      path: '/counsellor/sessions'
-      fullPath: '/counsellor/sessions'
-      preLoaderRoute: typeof CounsellorSessionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/counsellor/students': {
@@ -758,6 +770,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCounsellorsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/sessions/': {
+      id: '/admin/sessions/'
+      path: '/admin/sessions'
+      fullPath: '/admin/sessions/'
+      preLoaderRoute: typeof AdminSessionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/sessions/$id': {
+      id: '/admin/sessions/$id'
+      path: '/admin/sessions/$id'
+      fullPath: '/admin/sessions/$id'
+      preLoaderRoute: typeof AdminSessionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/counsellor/sessions/': {
+      id: '/counsellor/sessions/'
+      path: '/counsellor/sessions'
+      fullPath: '/counsellor/sessions/'
+      preLoaderRoute: typeof CounsellorSessionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/counsellor/sessions/$id': {
+      id: '/counsellor/sessions/$id'
+      path: '/counsellor/sessions/$id'
+      fullPath: '/counsellor/sessions/$id'
+      preLoaderRoute: typeof CounsellorSessionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/student/sessions/': {
       id: '/student/sessions/'
       path: '/student/sessions'
@@ -787,14 +827,12 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminLoginRoute: AdminLoginRoute,
-  AdminSessionsRoute: AdminSessionsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminStudentsRoute: AdminStudentsRoute,
   ApiConsultationRoute: ApiConsultationRoute,
   CounsellorDashboardRoute: CounsellorDashboardRoute,
   CounsellorLoginRoute: CounsellorLoginRoute,
   CounsellorProfileRoute: CounsellorProfileRoute,
-  CounsellorSessionsRoute: CounsellorSessionsRoute,
   CounsellorStudentsRoute: CounsellorStudentsRoute,
   DestinationsSlugRoute: DestinationsSlugRoute,
   ResourcesSlugRoute: ResourcesSlugRoute,
@@ -810,8 +848,12 @@ const rootRouteChildren: RootRouteChildren = {
   ResourcesIndexRoute: ResourcesIndexRoute,
   UniversitiesIndexRoute: UniversitiesIndexRoute,
   AdminCounsellorsIdRoute: AdminCounsellorsIdRoute,
+  AdminSessionsIdRoute: AdminSessionsIdRoute,
+  CounsellorSessionsIdRoute: CounsellorSessionsIdRoute,
   StudentSessionsIdRoute: StudentSessionsIdRoute,
   AdminCounsellorsIndexRoute: AdminCounsellorsIndexRoute,
+  AdminSessionsIndexRoute: AdminSessionsIndexRoute,
+  CounsellorSessionsIndexRoute: CounsellorSessionsIndexRoute,
   StudentSessionsIndexRoute: StudentSessionsIndexRoute,
 }
 export const routeTree = rootRouteImport
