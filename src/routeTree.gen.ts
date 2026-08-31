@@ -20,6 +20,7 @@ import { Route as SuccessStoriesRouteImport } from './routes/success-stories'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
 import { Route as AdminStudentsRouteImport } from './routes/admin.students'
 import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
 import { Route as CounsellorLoginRouteImport } from './routes/counsellor.login'
@@ -85,6 +86,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSessionsRoute = AdminSessionsRouteImport.update({
+  id: '/admin/sessions',
+  path: '/admin/sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminStudentsRoute = AdminStudentsRouteImport.update({
   id: '/admin/students',
   path: '/admin/students',
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/sessions': typeof AdminSessionsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/login': typeof CounsellorLoginRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/sessions': typeof AdminSessionsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/login': typeof CounsellorLoginRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/sessions': typeof AdminSessionsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/login': typeof CounsellorLoginRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/login'
+    | '/admin/sessions'
     | '/admin/students'
     | '/api/consultation'
     | '/counsellor/login'
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/login'
+    | '/admin/sessions'
     | '/admin/students'
     | '/api/consultation'
     | '/counsellor/login'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/login'
+    | '/admin/sessions'
     | '/admin/students'
     | '/api/consultation'
     | '/counsellor/login'
@@ -279,6 +291,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  AdminSessionsRoute: typeof AdminSessionsRoute
   AdminStudentsRoute: typeof AdminStudentsRoute
   ApiConsultationRoute: typeof ApiConsultationRoute
   CounsellorLoginRoute: typeof CounsellorLoginRoute
@@ -369,6 +382,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/sessions': {
+      id: '/admin/sessions'
+      path: '/admin/sessions'
+      fullPath: '/admin/sessions'
+      preLoaderRoute: typeof AdminSessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/students': {
       id: '/admin/students'
       path: '/admin/students'
@@ -447,6 +467,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminLoginRoute: AdminLoginRoute,
+  AdminSessionsRoute: AdminSessionsRoute,
   AdminStudentsRoute: AdminStudentsRoute,
   ApiConsultationRoute: ApiConsultationRoute,
   CounsellorLoginRoute: CounsellorLoginRoute,
