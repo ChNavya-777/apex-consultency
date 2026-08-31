@@ -20,6 +20,7 @@ import { Route as SuccessStoriesRouteImport } from './routes/success-stories'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AdminStudentsRouteImport } from './routes/admin.students'
 import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
 import { Route as CounsellorLoginRouteImport } from './routes/counsellor.login'
 import { Route as DestinationsIndexRouteImport } from './routes/destinations.index'
@@ -84,6 +85,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminStudentsRoute = AdminStudentsRouteImport.update({
+  id: '/admin/students',
+  path: '/admin/students',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiConsultationRoute = ApiConsultationRouteImport.update({
   id: '/api/consultation',
   path: '/api/consultation',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
@@ -203,6 +212,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/login'
+    | '/admin/students'
     | '/api/consultation'
     | '/counsellor/login'
     | '/destinations/$slug'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/login'
+    | '/admin/students'
     | '/api/consultation'
     | '/counsellor/login'
     | '/destinations/$slug'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/login'
+    | '/admin/students'
     | '/api/consultation'
     | '/counsellor/login'
     | '/destinations/$slug'
@@ -267,6 +279,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  AdminStudentsRoute: typeof AdminStudentsRoute
   ApiConsultationRoute: typeof ApiConsultationRoute
   CounsellorLoginRoute: typeof CounsellorLoginRoute
   DestinationsSlugRoute: typeof DestinationsSlugRoute
@@ -356,6 +369,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/students': {
+      id: '/admin/students'
+      path: '/admin/students'
+      fullPath: '/admin/students'
+      preLoaderRoute: typeof AdminStudentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/consultation': {
       id: '/api/consultation'
       path: '/api/consultation'
@@ -427,6 +447,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminLoginRoute: AdminLoginRoute,
+  AdminStudentsRoute: AdminStudentsRoute,
   ApiConsultationRoute: ApiConsultationRoute,
   CounsellorLoginRoute: CounsellorLoginRoute,
   DestinationsSlugRoute: DestinationsSlugRoute,
