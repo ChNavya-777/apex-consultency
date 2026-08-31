@@ -45,6 +45,7 @@ import { Route as AdminCounsellorsIdRouteImport } from './routes/admin.counsello
 import { Route as AdminSessionsIndexRouteImport } from './routes/admin.sessions.index'
 import { Route as AdminSessionsIdRouteImport } from './routes/admin.sessions.$id'
 import { Route as CounsellorSessionsIndexRouteImport } from './routes/counsellor.sessions.index'
+import { Route as CounsellorSessionsIdRouteImport } from './routes/counsellor.sessions.$id'
 import { Route as StudentSessionsIndexRouteImport } from './routes/student.sessions.index'
 import { Route as StudentSessionsIdRouteImport } from './routes/student.sessions.$id'
 
@@ -228,6 +229,11 @@ const CounsellorSessionsIndexRoute = CounsellorSessionsIndexRouteImport.update({
   path: '/counsellor/sessions/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CounsellorSessionsIdRoute = CounsellorSessionsIdRouteImport.update({
+  id: '/counsellor/sessions/$id',
+  path: '/counsellor/sessions/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentSessionsIndexRoute = StudentSessionsIndexRouteImport.update({
   id: '/student/sessions/',
   path: '/student/sessions/',
@@ -273,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
   '/admin/sessions/': typeof AdminSessionsIndexRoute
@@ -313,6 +320,7 @@ export interface FileRoutesByTo {
   '/universities': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors': typeof AdminCounsellorsIndexRoute
   '/admin/sessions': typeof AdminSessionsIndexRoute
@@ -354,6 +362,7 @@ export interface FileRoutesById {
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
   '/admin/sessions/': typeof AdminSessionsIndexRoute
@@ -396,6 +405,7 @@ export interface FileRouteTypes {
     | '/universities/'
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
+    | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
     | '/admin/sessions/'
@@ -436,6 +446,7 @@ export interface FileRouteTypes {
     | '/universities'
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
+    | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors'
     | '/admin/sessions'
@@ -476,6 +487,7 @@ export interface FileRouteTypes {
     | '/universities/'
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
+    | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
     | '/admin/sessions/'
@@ -517,6 +529,7 @@ export interface RootRouteChildren {
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
   AdminCounsellorsIdRoute: typeof AdminCounsellorsIdRoute
   AdminSessionsIdRoute: typeof AdminSessionsIdRoute
+  CounsellorSessionsIdRoute: typeof CounsellorSessionsIdRoute
   StudentSessionsIdRoute: typeof StudentSessionsIdRoute
   AdminCounsellorsIndexRoute: typeof AdminCounsellorsIndexRoute
   AdminSessionsIndexRoute: typeof AdminSessionsIndexRoute
@@ -778,6 +791,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CounsellorSessionsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/counsellor/sessions/$id': {
+      id: '/counsellor/sessions/$id'
+      path: '/counsellor/sessions/$id'
+      fullPath: '/counsellor/sessions/$id'
+      preLoaderRoute: typeof CounsellorSessionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/student/sessions/': {
       id: '/student/sessions/'
       path: '/student/sessions'
@@ -829,6 +849,7 @@ const rootRouteChildren: RootRouteChildren = {
   UniversitiesIndexRoute: UniversitiesIndexRoute,
   AdminCounsellorsIdRoute: AdminCounsellorsIdRoute,
   AdminSessionsIdRoute: AdminSessionsIdRoute,
+  CounsellorSessionsIdRoute: CounsellorSessionsIdRoute,
   StudentSessionsIdRoute: StudentSessionsIdRoute,
   AdminCounsellorsIndexRoute: AdminCounsellorsIndexRoute,
   AdminSessionsIndexRoute: AdminSessionsIndexRoute,
