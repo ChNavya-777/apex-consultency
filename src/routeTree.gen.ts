@@ -21,6 +21,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminStudentsRouteImport } from './routes/admin.students'
 import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
 import { Route as CounsellorDashboardRouteImport } from './routes/counsellor.dashboard'
@@ -95,6 +96,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
 const AdminSessionsRoute = AdminSessionsRouteImport.update({
   id: '/admin/sessions',
   path: '/admin/sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminStudentsRoute = AdminStudentsRouteImport.update({
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
@@ -215,6 +222,7 @@ export interface FileRoutesByTo {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
@@ -245,6 +253,7 @@ export interface FileRoutesById {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
@@ -276,6 +285,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/sessions'
+    | '/admin/settings'
     | '/admin/students'
     | '/api/consultation'
     | '/counsellor/dashboard'
@@ -305,6 +315,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/sessions'
+    | '/admin/settings'
     | '/admin/students'
     | '/api/consultation'
     | '/counsellor/dashboard'
@@ -334,6 +345,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/sessions'
+    | '/admin/settings'
     | '/admin/students'
     | '/api/consultation'
     | '/counsellor/dashboard'
@@ -364,6 +376,7 @@ export interface RootRouteChildren {
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminSessionsRoute: typeof AdminSessionsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminStudentsRoute: typeof AdminStudentsRoute
   ApiConsultationRoute: typeof ApiConsultationRoute
   CounsellorDashboardRoute: typeof CounsellorDashboardRoute
@@ -465,6 +478,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/sessions'
       fullPath: '/admin/sessions'
       preLoaderRoute: typeof AdminSessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/students': {
@@ -588,6 +608,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDashboardRoute: AdminDashboardRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminSessionsRoute: AdminSessionsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminStudentsRoute: AdminStudentsRoute,
   ApiConsultationRoute: ApiConsultationRoute,
   CounsellorDashboardRoute: CounsellorDashboardRoute,
