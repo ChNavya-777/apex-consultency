@@ -26,6 +26,7 @@ import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
 import { Route as CounsellorDashboardRouteImport } from './routes/counsellor.dashboard'
 import { Route as CounsellorLoginRouteImport } from './routes/counsellor.login'
 import { Route as CounsellorSessionsRouteImport } from './routes/counsellor.sessions'
+import { Route as CounsellorStudentsRouteImport } from './routes/counsellor.students'
 import { Route as DestinationsIndexRouteImport } from './routes/destinations.index'
 import { Route as DestinationsSlugRouteImport } from './routes/destinations.$slug'
 import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
@@ -120,6 +121,11 @@ const CounsellorSessionsRoute = CounsellorSessionsRouteImport.update({
   path: '/counsellor/sessions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CounsellorStudentsRoute = CounsellorStudentsRouteImport.update({
+  id: '/counsellor/students',
+  path: '/counsellor/students',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DestinationsIndexRoute = DestinationsIndexRouteImport.update({
   id: '/destinations/',
   path: '/destinations/',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/sessions': typeof CounsellorSessionsRoute
+  '/counsellor/students': typeof CounsellorStudentsRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/sessions': typeof CounsellorSessionsRoute
+  '/counsellor/students': typeof CounsellorStudentsRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/sessions': typeof CounsellorSessionsRoute
+  '/counsellor/students': typeof CounsellorStudentsRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
@@ -263,6 +272,7 @@ export interface FileRouteTypes {
     | '/counsellor/dashboard'
     | '/counsellor/login'
     | '/counsellor/sessions'
+    | '/counsellor/students'
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/universities/$slug'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/counsellor/dashboard'
     | '/counsellor/login'
     | '/counsellor/sessions'
+    | '/counsellor/students'
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/universities/$slug'
@@ -317,6 +328,7 @@ export interface FileRouteTypes {
     | '/counsellor/dashboard'
     | '/counsellor/login'
     | '/counsellor/sessions'
+    | '/counsellor/students'
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/universities/$slug'
@@ -345,6 +357,7 @@ export interface RootRouteChildren {
   CounsellorDashboardRoute: typeof CounsellorDashboardRoute
   CounsellorLoginRoute: typeof CounsellorLoginRoute
   CounsellorSessionsRoute: typeof CounsellorSessionsRoute
+  CounsellorStudentsRoute: typeof CounsellorStudentsRoute
   DestinationsSlugRoute: typeof DestinationsSlugRoute
   ResourcesSlugRoute: typeof ResourcesSlugRoute
   UniversitiesSlugRoute: typeof UniversitiesSlugRoute
@@ -476,6 +489,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CounsellorSessionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/counsellor/students': {
+      id: '/counsellor/students'
+      path: '/counsellor/students'
+      fullPath: '/counsellor/students'
+      preLoaderRoute: typeof CounsellorStudentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/destinations/': {
       id: '/destinations/'
       path: '/destinations'
@@ -553,6 +573,7 @@ const rootRouteChildren: RootRouteChildren = {
   CounsellorDashboardRoute: CounsellorDashboardRoute,
   CounsellorLoginRoute: CounsellorLoginRoute,
   CounsellorSessionsRoute: CounsellorSessionsRoute,
+  CounsellorStudentsRoute: CounsellorStudentsRoute,
   DestinationsSlugRoute: DestinationsSlugRoute,
   ResourcesSlugRoute: ResourcesSlugRoute,
   UniversitiesSlugRoute: UniversitiesSlugRoute,
