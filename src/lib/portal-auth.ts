@@ -8,7 +8,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-export type PortalRole = "super_admin" | "counsellor";
+export type PortalRole = "super_admin" | "counsellor" | "student";
+
+/** Where each role belongs when it lands somewhere it shouldn't. */
+export const roleHome: Record<PortalRole, string> = {
+  super_admin: "/admin/dashboard",
+  counsellor: "/counsellor/dashboard",
+  student: "/student/dashboard",
+};
+
+export const roleLogin: Record<PortalRole, string> = {
+  super_admin: "/admin/login",
+  counsellor: "/counsellor/login",
+  student: "/student/login",
+};
 export type AccountStatus = "Active" | "Disabled";
 
 export type Counsellor = {
@@ -202,6 +215,24 @@ export function signInCounsellor(email: string, password: string): PortalSession
     email: counsellor.email,
     counsellorId: counsellor.id,
   };
+  writeSession(session);
+  return session;
+}
+
+/**
+ * PROTOTYPE student sign-in.
+ *
+ * No student accounts exist in this prototype and none are invented: any email/password pair
+ * that passes basic validation opens a student session scoped to that email only. When the real
+ * student directory is connected, replace the body of this function — nothing else changes.
+ * The session intentionally carries no student name, profile, session or document data, so the
+ * UI can only ever show data belonging to the signed-in email (see the data-scoping note below).
+ */
+export function signInStudent(email: string, password: string): PortalSession | null {
+  const normalized = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) || password.length < 4) return null;
+
+  const session: PortalSession = { role: "student", name: "", email: normalized };
   writeSession(session);
   return session;
 }

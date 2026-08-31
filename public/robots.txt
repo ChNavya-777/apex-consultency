@@ -16,3 +16,4 @@ Allow: /
 User-agent: *
 Disallow: /admin
 Disallow: /counsellor
+Disallow: /student

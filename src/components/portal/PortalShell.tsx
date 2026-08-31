@@ -3,7 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { GraduationCap, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { signOut, useSession, type PortalRole, type PortalSession } from "@/lib/portal-auth";
+import { roleHome, roleLogin, signOut, useSession, type PortalRole, type PortalSession } from "@/lib/portal-auth";
 
 /* ------------------------------------------------------------------ */
 /* Access control (prototype, client-side)                            */
@@ -16,14 +16,11 @@ export function useRequireRole(role: PortalRole): PortalSession | undefined {
   useEffect(() => {
     if (session === undefined) return;
     if (!session) {
-      navigate({ to: role === "super_admin" ? "/admin/login" : "/counsellor/login", replace: true });
+      navigate({ to: roleLogin[role], replace: true });
       return;
     }
     if (session.role !== role) {
-      navigate({
-        to: session.role === "super_admin" ? "/admin/dashboard" : "/counsellor/dashboard",
-        replace: true,
-      });
+      navigate({ to: roleHome[session.role], replace: true });
     }
   }, [session, role, navigate]);
 

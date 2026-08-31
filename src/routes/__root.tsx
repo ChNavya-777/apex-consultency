@@ -149,7 +149,10 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Internal portal routes render their own chrome (sidebar), not the public site chrome.
-  const isPortal = pathname.startsWith("/admin") || pathname.startsWith("/counsellor");
+  const isPortal =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/counsellor") ||
+    pathname.startsWith("/student");
 
   if (isPortal) {
     return (
