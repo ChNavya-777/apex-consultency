@@ -5,7 +5,7 @@ import { counsellorNav } from "@/components/portal/nav";
 const title = "My Sessions — APEX Global Education Portal";
 const description = "Consultation sessions assigned to you.";
 
-export const Route = createFileRoute("/counsellor/sessions")({
+export const Route = createFileRoute("/counsellor/sessions/")({
   head: () => ({
     meta: [
       { title },

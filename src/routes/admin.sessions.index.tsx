@@ -1,17 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
-import {
-  EmptyState,
-  PortalCard,
-  PortalHeading,
-  PortalLayout,
-  useRequireRole,
-} from "@/components/portal/PortalShell";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { PortalCard, PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { adminNav } from "@/components/portal/nav";
+import {
+  SessionEmptyState,
+  SessionFilters,
+  SessionTable,
+  emptySessionFilters,
+  type SessionFilterState,
+} from "@/components/sessions/SessionUI";
+import { getAllSessions, isSameDay } from "@/lib/sessions";
+import { useCounsellors } from "@/lib/portal-auth";
+import { cn } from "@/lib/utils";
 
-const title = "Sessions — APEX Global Education Portal";
-const description = "Consultation sessions booked by students.";
+const title = "Consultation Sessions — APEX Global Education Portal";
+const description = "View and manage scheduled student consultations.";
 
-export const Route = createFileRoute("/admin/sessions")({
+export const Route = createFileRoute("/admin/sessions/")({
   head: () => ({
     meta: [
       { title },
@@ -24,61 +29,87 @@ export const Route = createFileRoute("/admin/sessions")({
   component: AdminSessionsPage,
 });
 
-const columns = [
-  "Booking UID",
-  "Student Name",
-  "Student Email",
-  "Counsellor",
-  "Start Time",
-  "End Time",
-  "Meeting URL",
-];
+const tabs = ["All", "Upcoming", "Completed"] as const;
 
 function AdminSessionsPage() {
   const session = useRequireRole("super_admin");
+  const counsellors = useCounsellors();
+  const [tab, setTab] = useState<(typeof tabs)[number]>("All");
+  const [filters, setFilters] = useState<SessionFilterState>(emptySessionFilters);
+
+  const sessions = useMemo(() => {
+    const all = getAllSessions();
+    return all.filter((s) => {
+      if (tab === "Upcoming" && s.status !== "upcoming" && s.status !== "in_progress") return false;
+      if (tab === "Completed" && s.status !== "completed") return false;
+      if (filters.status !== "all" && s.status !== filters.status) return false;
+      if (filters.counsellor !== "all" && s.counsellorName !== filters.counsellor) return false;
+      if (filters.date && !isSameDay(s.startTime, new Date(filters.date))) return false;
+      const q = filters.search.trim().toLowerCase();
+      if (
+        q &&
+        ![s.studentName, s.studentEmail, s.bookingUid].some((v) => v.toLowerCase().includes(q))
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [tab, filters]);
+
   if (!session) return null;
 
   return (
     <PortalLayout session={session} nav={adminNav}>
-      <PortalHeading title="Sessions" text="Consultation sessions booked by students." />
+      <PortalHeading
+        title="Consultation Sessions"
+        text="View and manage scheduled student consultations."
+      />
 
-      <PortalCard className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-surface">
-              <tr>
-                {columns.map((c) => (
-                  <th
-                    key={c}
-                    className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                  >
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan={columns.length} className="px-5 py-14 text-center">
-                  <p className="font-display text-base font-semibold text-foreground">
-                    No consultation sessions yet
-                  </p>
-                  <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                    Sessions will appear here once the booking data source is connected.
-                  </p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <PortalCard className="mb-5">
+        <SessionFilters
+          value={filters}
+          onChange={setFilters}
+          counsellors={counsellors.map((c) => c.name)}
+        />
       </PortalCard>
 
-      <div className="mt-6">
-        <EmptyState
-          title="Data source not connected"
-          text="Session records will be read from the booking Google Sheet in the next phase."
-        />
+      <div
+        role="tablist"
+        aria-label="Session range"
+        className="mb-5 inline-flex rounded-xl bg-card p-1 shadow-soft"
+      >
+        {tabs.map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            className={cn(
+              "min-w-[6.5rem] rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+              tab === t
+                ? "bg-brand-blue/10 text-brand-blue"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t}
+          </button>
+        ))}
       </div>
+
+      <SessionTable
+        sessions={sessions}
+        empty={<SessionEmptyState />}
+        renderView={(s) => (
+          <Link
+            to="/admin/sessions/$id"
+            params={{ id: s.bookingUid }}
+            className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+          >
+            View
+          </Link>
+        )}
+      />
     </PortalLayout>
   );
 }
