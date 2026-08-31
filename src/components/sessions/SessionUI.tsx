@@ -29,7 +29,7 @@ const statusStyles: Record<SessionStatus, string> = {
   no_show: "bg-muted text-muted-foreground",
 };
 
-export function SessionStatusBadge({ status }: { status?: SessionStatus }) {
+export function SessionStatusBadge({ status }: { status?: SessionStatus | undefined }) {
   if (!status) {
     return <span className="text-sm text-muted-foreground/60">—</span>;
   }
@@ -54,9 +54,9 @@ export function MeetingButton({
   size = "md",
   className,
 }: {
-  url?: string | null;
-  size?: "sm" | "md";
-  className?: string;
+  url?: string | null | undefined;
+  size?: "sm" | "md" | undefined;
+  className?: string | undefined;
 }) {
   if (!isValidMeetingUrl(url)) return null;
   return (
