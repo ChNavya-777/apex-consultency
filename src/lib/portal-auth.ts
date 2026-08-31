@@ -222,15 +222,21 @@ export function signInCounsellor(email: string, password: string): PortalSession
 /**
  * PROTOTYPE student sign-in.
  *
- * No student accounts exist in this prototype and none are invented: any email/password pair
- * that passes basic validation opens a student session scoped to that email only. When the real
- * student directory is connected, replace the body of this function — nothing else changes.
- * The session intentionally carries no student name, profile, session or document data, so the
- * UI can only ever show data belonging to the signed-in email (see the data-scoping note below).
+ * Exactly ONE prototype student credential exists. It is intentionally the only accepted
+ * pair — no student accounts are invented. Replace the body of this function when the real
+ * student directory is connected; nothing else changes. The session carries no profile,
+ * counsellor, session or document data, so the UI can only show data scoped to this email.
  */
+const STUDENT_CREDENTIAL: Credential = {
+  email: "student123@gmail.com",
+  password: "student123",
+};
+
 export function signInStudent(email: string, password: string): PortalSession | null {
   const normalized = email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) || password.length < 4) return null;
+  if (normalized !== STUDENT_CREDENTIAL.email || password !== STUDENT_CREDENTIAL.password) {
+    return null;
+  }
 
   const session: PortalSession = { role: "student", name: "", email: normalized };
   writeSession(session);
