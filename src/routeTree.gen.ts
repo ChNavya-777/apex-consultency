@@ -31,6 +31,7 @@ import { Route as ResourcesSlugRouteImport } from './routes/resources.$slug'
 import { Route as UniversitiesIndexRouteImport } from './routes/universities.index'
 import { Route as UniversitiesSlugRouteImport } from './routes/universities.$slug'
 import { Route as AdminCounsellorsIndexRouteImport } from './routes/admin.counsellors.index'
+import { Route as AdminCounsellorsIdRouteImport } from './routes/admin.counsellors.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -142,6 +143,11 @@ const AdminCounsellorsIndexRoute = AdminCounsellorsIndexRouteImport.update({
   path: '/admin/counsellors/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminCounsellorsIdRoute = AdminCounsellorsIdRouteImport.update({
+  id: '/admin/counsellors/$id',
+  path: '/admin/counsellors/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/destinations/': typeof DestinationsIndexRoute
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
+  '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/destinations': typeof DestinationsIndexRoute
   '/resources': typeof ResourcesIndexRoute
   '/universities': typeof UniversitiesIndexRoute
+  '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/counsellors': typeof AdminCounsellorsIndexRoute
 }
 export interface FileRoutesById {
@@ -214,6 +222,7 @@ export interface FileRoutesById {
   '/destinations/': typeof DestinationsIndexRoute
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
+  '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
 }
 export interface FileRouteTypes {
@@ -240,6 +249,7 @@ export interface FileRouteTypes {
     | '/destinations/'
     | '/resources/'
     | '/universities/'
+    | '/admin/counsellors/$id'
     | '/admin/counsellors/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/destinations'
     | '/resources'
     | '/universities'
+    | '/admin/counsellors/$id'
     | '/admin/counsellors'
   id:
     | '__root__'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/destinations/'
     | '/resources/'
     | '/universities/'
+    | '/admin/counsellors/$id'
     | '/admin/counsellors/'
   fileRoutesById: FileRoutesById
 }
@@ -313,6 +325,7 @@ export interface RootRouteChildren {
   DestinationsIndexRoute: typeof DestinationsIndexRoute
   ResourcesIndexRoute: typeof ResourcesIndexRoute
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
+  AdminCounsellorsIdRoute: typeof AdminCounsellorsIdRoute
   AdminCounsellorsIndexRoute: typeof AdminCounsellorsIndexRoute
 }
 
@@ -472,6 +485,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCounsellorsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/counsellors/$id': {
+      id: '/admin/counsellors/$id'
+      path: '/admin/counsellors/$id'
+      fullPath: '/admin/counsellors/$id'
+      preLoaderRoute: typeof AdminCounsellorsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -497,6 +517,7 @@ const rootRouteChildren: RootRouteChildren = {
   DestinationsIndexRoute: DestinationsIndexRoute,
   ResourcesIndexRoute: ResourcesIndexRoute,
   UniversitiesIndexRoute: UniversitiesIndexRoute,
+  AdminCounsellorsIdRoute: AdminCounsellorsIdRoute,
   AdminCounsellorsIndexRoute: AdminCounsellorsIndexRoute,
 }
 export const routeTree = rootRouteImport

@@ -23,7 +23,9 @@ const title = "Counsellor Detail — APEX Global Education Portal";
 const description = "View and manage an individual APEX counsellor account.";
 
 export const Route = createFileRoute("/admin/counsellors/$id")({
-  validateSearch: (search: Record<string, unknown>) => ({ edit: search.edit === true || search.edit === "true" }),
+  validateSearch: (search: Record<string, unknown>): { edit?: boolean } => ({
+    edit: search["edit"] === true || search["edit"] === "true" ? true : undefined,
+  }),
   head: () => ({
     meta: [
       { title },
