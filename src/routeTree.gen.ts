@@ -25,6 +25,7 @@ import { Route as AdminStudentsRouteImport } from './routes/admin.students'
 import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
 import { Route as CounsellorDashboardRouteImport } from './routes/counsellor.dashboard'
 import { Route as CounsellorLoginRouteImport } from './routes/counsellor.login'
+import { Route as CounsellorProfileRouteImport } from './routes/counsellor.profile'
 import { Route as CounsellorSessionsRouteImport } from './routes/counsellor.sessions'
 import { Route as CounsellorStudentsRouteImport } from './routes/counsellor.students'
 import { Route as DestinationsIndexRouteImport } from './routes/destinations.index'
@@ -116,6 +117,11 @@ const CounsellorLoginRoute = CounsellorLoginRouteImport.update({
   path: '/counsellor/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CounsellorProfileRoute = CounsellorProfileRouteImport.update({
+  id: '/counsellor/profile',
+  path: '/counsellor/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CounsellorSessionsRoute = CounsellorSessionsRouteImport.update({
   id: '/counsellor/sessions',
   path: '/counsellor/sessions',
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
+  '/counsellor/profile': typeof CounsellorProfileRoute
   '/counsellor/sessions': typeof CounsellorSessionsRoute
   '/counsellor/students': typeof CounsellorStudentsRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
+  '/counsellor/profile': typeof CounsellorProfileRoute
   '/counsellor/sessions': typeof CounsellorSessionsRoute
   '/counsellor/students': typeof CounsellorStudentsRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
+  '/counsellor/profile': typeof CounsellorProfileRoute
   '/counsellor/sessions': typeof CounsellorSessionsRoute
   '/counsellor/students': typeof CounsellorStudentsRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/api/consultation'
     | '/counsellor/dashboard'
     | '/counsellor/login'
+    | '/counsellor/profile'
     | '/counsellor/sessions'
     | '/counsellor/students'
     | '/destinations/$slug'
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/api/consultation'
     | '/counsellor/dashboard'
     | '/counsellor/login'
+    | '/counsellor/profile'
     | '/counsellor/sessions'
     | '/counsellor/students'
     | '/destinations/$slug'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/api/consultation'
     | '/counsellor/dashboard'
     | '/counsellor/login'
+    | '/counsellor/profile'
     | '/counsellor/sessions'
     | '/counsellor/students'
     | '/destinations/$slug'
@@ -356,6 +368,7 @@ export interface RootRouteChildren {
   ApiConsultationRoute: typeof ApiConsultationRoute
   CounsellorDashboardRoute: typeof CounsellorDashboardRoute
   CounsellorLoginRoute: typeof CounsellorLoginRoute
+  CounsellorProfileRoute: typeof CounsellorProfileRoute
   CounsellorSessionsRoute: typeof CounsellorSessionsRoute
   CounsellorStudentsRoute: typeof CounsellorStudentsRoute
   DestinationsSlugRoute: typeof DestinationsSlugRoute
@@ -482,6 +495,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CounsellorLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/counsellor/profile': {
+      id: '/counsellor/profile'
+      path: '/counsellor/profile'
+      fullPath: '/counsellor/profile'
+      preLoaderRoute: typeof CounsellorProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/counsellor/sessions': {
       id: '/counsellor/sessions'
       path: '/counsellor/sessions'
@@ -572,6 +592,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiConsultationRoute: ApiConsultationRoute,
   CounsellorDashboardRoute: CounsellorDashboardRoute,
   CounsellorLoginRoute: CounsellorLoginRoute,
+  CounsellorProfileRoute: CounsellorProfileRoute,
   CounsellorSessionsRoute: CounsellorSessionsRoute,
   CounsellorStudentsRoute: CounsellorStudentsRoute,
   DestinationsSlugRoute: DestinationsSlugRoute,
