@@ -20,6 +20,7 @@ import { Route as SuccessStoriesRouteImport } from './routes/success-stories'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
+import { Route as CounsellorLoginRouteImport } from './routes/counsellor.login'
 import { Route as DestinationsIndexRouteImport } from './routes/destinations.index'
 import { Route as DestinationsSlugRouteImport } from './routes/destinations.$slug'
 import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
@@ -82,6 +83,11 @@ const ApiConsultationRoute = ApiConsultationRouteImport.update({
   path: '/api/consultation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CounsellorLoginRoute = CounsellorLoginRouteImport.update({
+  id: '/counsellor/login',
+  path: '/counsellor/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DestinationsIndexRoute = DestinationsIndexRouteImport.update({
   id: '/destinations/',
   path: '/destinations/',
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/consultation': typeof ApiConsultationRoute
+  '/counsellor/login': typeof CounsellorLoginRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/consultation': typeof ApiConsultationRoute
+  '/counsellor/login': typeof CounsellorLoginRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/consultation': typeof ApiConsultationRoute
+  '/counsellor/login': typeof CounsellorLoginRoute
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/login'
     | '/api/consultation'
+    | '/counsellor/login'
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/universities/$slug'
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/login'
     | '/api/consultation'
+    | '/counsellor/login'
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/universities/$slug'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/login'
     | '/api/consultation'
+    | '/counsellor/login'
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/universities/$slug'
@@ -243,6 +255,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AdminLoginRoute: typeof AdminLoginRoute
   ApiConsultationRoute: typeof ApiConsultationRoute
+  CounsellorLoginRoute: typeof CounsellorLoginRoute
   DestinationsSlugRoute: typeof DestinationsSlugRoute
   ResourcesSlugRoute: typeof ResourcesSlugRoute
   UniversitiesSlugRoute: typeof UniversitiesSlugRoute
@@ -330,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiConsultationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/counsellor/login': {
+      id: '/counsellor/login'
+      path: '/counsellor/login'
+      fullPath: '/counsellor/login'
+      preLoaderRoute: typeof CounsellorLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/destinations/': {
       id: '/destinations/'
       path: '/destinations'
@@ -387,6 +407,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AdminLoginRoute: AdminLoginRoute,
   ApiConsultationRoute: ApiConsultationRoute,
+  CounsellorLoginRoute: CounsellorLoginRoute,
   DestinationsSlugRoute: DestinationsSlugRoute,
   ResourcesSlugRoute: ResourcesSlugRoute,
   UniversitiesSlugRoute: UniversitiesSlugRoute,
