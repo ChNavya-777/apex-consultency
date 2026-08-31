@@ -18,6 +18,7 @@ import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as SuccessStoriesRouteImport } from './routes/success-stories'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
 import { Route as CounsellorLoginRouteImport } from './routes/counsellor.login'
@@ -71,6 +72,11 @@ const SuccessStoriesRoute = SuccessStoriesRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/admin/dashboard',
+  path: '/admin/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/terms': typeof TermsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/login': typeof CounsellorLoginRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByTo {
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/terms': typeof TermsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/login': typeof CounsellorLoginRoute
@@ -170,6 +178,7 @@ export interface FileRoutesById {
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/terms': typeof TermsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/consultation': typeof ApiConsultationRoute
   '/counsellor/login': typeof CounsellorLoginRoute
@@ -192,6 +201,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/success-stories'
     | '/terms'
+    | '/admin/dashboard'
     | '/admin/login'
     | '/api/consultation'
     | '/counsellor/login'
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/success-stories'
     | '/terms'
+    | '/admin/dashboard'
     | '/admin/login'
     | '/api/consultation'
     | '/counsellor/login'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/success-stories'
     | '/terms'
+    | '/admin/dashboard'
     | '/admin/login'
     | '/api/consultation'
     | '/counsellor/login'
@@ -253,6 +265,7 @@ export interface RootRouteChildren {
   ServicesRoute: typeof ServicesRoute
   SuccessStoriesRoute: typeof SuccessStoriesRoute
   TermsRoute: typeof TermsRoute
+  AdminDashboardRoute: typeof AdminDashboardRoute
   AdminLoginRoute: typeof AdminLoginRoute
   ApiConsultationRoute: typeof ApiConsultationRoute
   CounsellorLoginRoute: typeof CounsellorLoginRoute
@@ -327,6 +340,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/login': {
@@ -405,6 +425,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServicesRoute: ServicesRoute,
   SuccessStoriesRoute: SuccessStoriesRoute,
   TermsRoute: TermsRoute,
+  AdminDashboardRoute: AdminDashboardRoute,
   AdminLoginRoute: AdminLoginRoute,
   ApiConsultationRoute: ApiConsultationRoute,
   CounsellorLoginRoute: CounsellorLoginRoute,
