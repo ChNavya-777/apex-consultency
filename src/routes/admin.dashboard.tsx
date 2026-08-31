@@ -38,12 +38,60 @@ function AdminDashboardPage() {
   const session = useRequireRole("super_admin");
   if (!session) return null;
 
+  /** Empty until the booking source is connected — no counts or records are invented. */
+  const todaySessions = getAllSessions().filter((s) => isSameDay(s.startTime));
+
   return (
     <PortalLayout session={session} nav={adminNav}>
       <PortalHeading
         title="Welcome, Admin"
         text="Manage your APEX Global Education operations from one place."
       />
+
+      <section className="mb-8">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-lg font-semibold text-foreground">
+            Today&apos;s Sessions
+          </h2>
+          <Link
+            to="/admin/sessions"
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-input bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+          >
+            View All Sessions
+          </Link>
+        </div>
+
+        {todaySessions.length === 0 ? (
+          <SessionEmptyState
+            title="No sessions scheduled for today."
+            text="Scheduled consultations will appear here once your booking system is connected."
+          />
+        ) : (
+          <div className="space-y-3">
+            {todaySessions.map((s) => (
+              <SessionCard
+                key={s.bookingUid}
+                session={s}
+                showCounsellor
+                actions={
+                  <>
+                    <Link
+                      to="/admin/sessions/$id"
+                      params={{ id: s.bookingUid }}
+                      className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+                    >
+                      View
+                    </Link>
+                    <MeetingButton url={s.meetingUrl} size="sm" />
+                  </>
+                }
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {liveCards.map((card) => (
