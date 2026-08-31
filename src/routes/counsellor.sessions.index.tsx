@@ -1,9 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PortalCard, PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { counsellorNav } from "@/components/portal/nav";
+import { SessionCard, SessionEmptyState, MeetingButton } from "@/components/sessions/SessionUI";
+import { getCounsellorSessions, isSameDay } from "@/lib/sessions";
+import { cn } from "@/lib/utils";
 
 const title = "My Sessions — APEX Global Education Portal";
-const description = "Consultation sessions assigned to you.";
+const description = "View your assigned student consultations.";
 
 export const Route = createFileRoute("/counsellor/sessions/")({
   head: () => ({
@@ -18,47 +22,85 @@ export const Route = createFileRoute("/counsellor/sessions/")({
   component: CounsellorSessionsPage,
 });
 
-const columns = ["Booking UID", "Student Name", "Student Email", "Start Time", "End Time", "Meeting URL"];
+const tabs = ["Today", "Upcoming", "Completed"] as const;
 
 function CounsellorSessionsPage() {
   const session = useRequireRole("counsellor");
+  const [tab, setTab] = useState<(typeof tabs)[number]>("Today");
+
+  /** Scoped to the signed-in counsellor only — never another counsellor's sessions. */
+  const sessions = useMemo(() => {
+    const mine = session ? getCounsellorSessions(session.name) : [];
+    return mine.filter((s) => {
+      if (tab === "Today") return isSameDay(s.startTime);
+      if (tab === "Upcoming") return s.status === "upcoming" || s.status === "in_progress";
+      return s.status === "completed";
+    });
+  }, [session, tab]);
+
   if (!session) return null;
 
   return (
     <PortalLayout session={session} nav={counsellorNav}>
-      <PortalHeading title="My Sessions" text="Sessions assigned to you." />
+      <PortalHeading title="My Sessions" text="View your assigned student consultations." />
 
-      <PortalCard className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-surface">
-              <tr>
-                {columns.map((c) => (
-                  <th
-                    key={c}
-                    className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+      <div
+        role="tablist"
+        aria-label="Session range"
+        className="mb-5 inline-flex rounded-xl bg-card p-1 shadow-soft"
+      >
+        {tabs.map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            className={cn(
+              "min-w-[6.5rem] rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+              tab === t
+                ? "bg-brand-blue/10 text-brand-blue"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {sessions.length === 0 ? (
+        <SessionEmptyState
+          title="No sessions scheduled"
+          text="Your assigned consultations will appear here once the booking system is connected."
+        />
+      ) : (
+        <div className="space-y-3">
+          {sessions.map((s) => (
+            <SessionCard
+              key={s.bookingUid}
+              session={s}
+              actions={
+                <>
+                  <Link
+                    to="/counsellor/sessions/$id"
+                    params={{ id: s.bookingUid }}
+                    className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
                   >
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan={columns.length} className="px-5 py-14 text-center">
-                  <p className="font-display text-base font-semibold text-foreground">
-                    No consultation sessions yet
-                  </p>
-                  <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                    Your assigned sessions will appear here once the DayOtter session data is
-                    connected.
-                  </p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    View details
+                  </Link>
+                  <Link
+                    to="/counsellor/students"
+                    className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+                  >
+                    View Student
+                  </Link>
+                  <MeetingButton url={s.meetingUrl} size="sm" />
+                </>
+              }
+            />
+          ))}
         </div>
-      </PortalCard>
+      )}
     </PortalLayout>
   );
 }

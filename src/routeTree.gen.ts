@@ -43,6 +43,7 @@ import { Route as UniversitiesSlugRouteImport } from './routes/universities.$slu
 import { Route as AdminCounsellorsIndexRouteImport } from './routes/admin.counsellors.index'
 import { Route as AdminCounsellorsIdRouteImport } from './routes/admin.counsellors.$id'
 import { Route as AdminSessionsIndexRouteImport } from './routes/admin.sessions.index'
+import { Route as AdminSessionsIdRouteImport } from './routes/admin.sessions.$id'
 import { Route as CounsellorSessionsIndexRouteImport } from './routes/counsellor.sessions.index'
 import { Route as StudentSessionsIndexRouteImport } from './routes/student.sessions.index'
 import { Route as StudentSessionsIdRouteImport } from './routes/student.sessions.$id'
@@ -217,6 +218,11 @@ const AdminSessionsIndexRoute = AdminSessionsIndexRouteImport.update({
   path: '/admin/sessions/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSessionsIdRoute = AdminSessionsIdRouteImport.update({
+  id: '/admin/sessions/$id',
+  path: '/admin/sessions/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CounsellorSessionsIndexRoute = CounsellorSessionsIndexRouteImport.update({
   id: '/counsellor/sessions/',
   path: '/counsellor/sessions/',
@@ -266,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
+  '/admin/sessions/$id': typeof AdminSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
   '/admin/sessions/': typeof AdminSessionsIndexRoute
@@ -305,6 +312,7 @@ export interface FileRoutesByTo {
   '/resources': typeof ResourcesIndexRoute
   '/universities': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
+  '/admin/sessions/$id': typeof AdminSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors': typeof AdminCounsellorsIndexRoute
   '/admin/sessions': typeof AdminSessionsIndexRoute
@@ -345,6 +353,7 @@ export interface FileRoutesById {
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
+  '/admin/sessions/$id': typeof AdminSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
   '/admin/sessions/': typeof AdminSessionsIndexRoute
@@ -386,6 +395,7 @@ export interface FileRouteTypes {
     | '/resources/'
     | '/universities/'
     | '/admin/counsellors/$id'
+    | '/admin/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
     | '/admin/sessions/'
@@ -425,6 +435,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/universities'
     | '/admin/counsellors/$id'
+    | '/admin/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors'
     | '/admin/sessions'
@@ -464,6 +475,7 @@ export interface FileRouteTypes {
     | '/resources/'
     | '/universities/'
     | '/admin/counsellors/$id'
+    | '/admin/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
     | '/admin/sessions/'
@@ -504,6 +516,7 @@ export interface RootRouteChildren {
   ResourcesIndexRoute: typeof ResourcesIndexRoute
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
   AdminCounsellorsIdRoute: typeof AdminCounsellorsIdRoute
+  AdminSessionsIdRoute: typeof AdminSessionsIdRoute
   StudentSessionsIdRoute: typeof StudentSessionsIdRoute
   AdminCounsellorsIndexRoute: typeof AdminCounsellorsIndexRoute
   AdminSessionsIndexRoute: typeof AdminSessionsIndexRoute
@@ -751,6 +764,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSessionsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/sessions/$id': {
+      id: '/admin/sessions/$id'
+      path: '/admin/sessions/$id'
+      fullPath: '/admin/sessions/$id'
+      preLoaderRoute: typeof AdminSessionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/counsellor/sessions/': {
       id: '/counsellor/sessions/'
       path: '/counsellor/sessions'
@@ -808,6 +828,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResourcesIndexRoute: ResourcesIndexRoute,
   UniversitiesIndexRoute: UniversitiesIndexRoute,
   AdminCounsellorsIdRoute: AdminCounsellorsIdRoute,
+  AdminSessionsIdRoute: AdminSessionsIdRoute,
   StudentSessionsIdRoute: StudentSessionsIdRoute,
   AdminCounsellorsIndexRoute: AdminCounsellorsIndexRoute,
   AdminSessionsIndexRoute: AdminSessionsIndexRoute,
