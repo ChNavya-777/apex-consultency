@@ -288,9 +288,10 @@ export function ConsultationForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [booked, setBooked] = useState({ name: "", email: "" });
 
   if (state === "done") {
-    return <ConsultationSuccessPanel />;
+    return <ConsultationSuccessPanel name={booked.name} email={booked.email} />;
   }
 
   return (
