@@ -12,8 +12,10 @@ type SearchParams = {
   event_start_time: string | undefined;
   event_end_time: string | undefined;
   assigned_to: string | undefined;
+  assigned_to_email: string | undefined;
   invitee_email: string | undefined;
   invitee_full_name: string | undefined;
+  location: string | undefined;
 };
 
 const clean = (v: unknown): string | undefined => {
@@ -29,8 +31,10 @@ export const Route = createFileRoute("/consultation_/success")({
     event_start_time: clean(search["event_start_time"]),
     event_end_time: clean(search["event_end_time"]),
     assigned_to: clean(search["assigned_to"]),
+    assigned_to_email: clean(search["assigned_to_email"]),
     invitee_email: clean(search["invitee_email"]),
     invitee_full_name: clean(search["invitee_full_name"]),
+    location: clean(search["location"]),
   }),
   head: () => ({
     meta: [
@@ -107,8 +111,18 @@ function ConsultationSuccess() {
   const endText = formatTime(s.event_end_time);
   const timeText = startText && endText ? `${startText} – ${endText}` : startText;
 
+  const meetingUrl =
+    s.location && /^https?:\/\//i.test(s.location) ? s.location : undefined;
+
   const hasBooking = Boolean(
-    dateText || timeText || s.event_type_name || s.assigned_to || s.invitee_full_name || s.invitee_email,
+    dateText ||
+      timeText ||
+      s.event_type_name ||
+      s.assigned_to ||
+      s.assigned_to_email ||
+      s.invitee_full_name ||
+      s.invitee_email ||
+      meetingUrl,
   );
 
   if (!hasBooking) {
@@ -162,6 +176,9 @@ function ConsultationSuccess() {
           </div>
           <dl>
             <DetailRow label="Counsellor" value={s.assigned_to ?? "Your APEX counsellor"} />
+            {s.assigned_to_email && (
+              <DetailRow label="Counsellor Email" value={s.assigned_to_email} />
+            )}
             {dateText && <DetailRow label="Date" value={dateText} />}
             {timeText && <DetailRow label="Time" value={timeText} />}
             {s.event_type_name && (
@@ -169,6 +186,23 @@ function ConsultationSuccess() {
             )}
             {s.invitee_full_name && <DetailRow label="Student" value={s.invitee_full_name} />}
             {s.invitee_email && <DetailRow label="Email" value={s.invitee_email} />}
+            {meetingUrl && (
+              <div className="border-b border-border px-5 py-4 last:border-b-0 sm:px-6">
+                <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Meeting Link
+                </dt>
+                <dd className="mt-1.5 break-all text-base font-medium">
+                  <a
+                    href={meetingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-blue hover:underline"
+                  >
+                    {meetingUrl}
+                  </a>
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
 
