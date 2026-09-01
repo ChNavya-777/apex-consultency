@@ -25,12 +25,12 @@ const clean = (v: unknown): string | undefined => {
 
 export const Route = createFileRoute("/consultation/success")({
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
-    event_type_name: clean(search.event_type_name),
-    event_start_time: clean(search.event_start_time),
-    event_end_time: clean(search.event_end_time),
-    assigned_to: clean(search.assigned_to),
-    invitee_email: clean(search.invitee_email),
-    invitee_full_name: clean(search.invitee_full_name),
+    event_type_name: clean(search["event_type_name"]),
+    event_start_time: clean(search["event_start_time"]),
+    event_end_time: clean(search["event_end_time"]),
+    assigned_to: clean(search["assigned_to"]),
+    invitee_email: clean(search["invitee_email"]),
+    invitee_full_name: clean(search["invitee_full_name"]),
   }),
   head: () => ({
     meta: [
