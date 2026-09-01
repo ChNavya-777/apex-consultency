@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,6 @@ import { destinations } from "@/data/destinations";
 import { PROTOTYPE_NOTE } from "@/data/site";
 import { cn } from "@/lib/utils";
 
-declare global {
-  interface Window {
-    dayotter?: { scan: () => void; open: (url: string) => void };
-  }
-}
 
 const courseOptions = [
   "MS in Computer Science",
@@ -116,37 +111,26 @@ function SuccessPanel({ title, text }: { title: string; text: string }) {
   );
 }
 
-/**
- * DayOtter booking URL for the official popup embed.
- * The DayOtter embed script (loaded on the consultation page) listens for
- * clicks on elements with [data-dayotter-popup] and opens this URL in a
- * modal over the APEX page.
- */
-const DAYOTTER_BOOKING_URL = "https://dayotter.com/team/apex-8362/session-meeting-8630";
+/** APEX Calendly booking page (Session meeting — 1 hour, Round Robin). */
+const CALENDLY_BOOKING_URL = "https://calendly.com/d/dvxk-fqs-d9j/session-meeting";
 
-function ConsultationSuccessPanel() {
-  // The DayOtter embed script loads on the consultation page and scans the DOM
-  // for [data-dayotter-popup] elements. Because this panel is rendered after a
-  // successful form submission (not on initial page load), we ask DayOtter to
-  // rescan so the popup trigger is attached to the Book a Session button.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.dayotter?.scan) {
-      window.dayotter.scan();
-      return;
+function buildCalendlyUrl(name: string, email: string) {
+  const url = new URL(CALENDLY_BOOKING_URL);
+  if (name) url.searchParams.set("name", name);
+  if (email) url.searchParams.set("email", email);
+  return url.toString();
+}
+
+function ConsultationSuccessPanel({ name, email }: { name: string; email: string }) {
+  const [navError, setNavError] = useState(false);
+
+  const goToCalendly = () => {
+    try {
+      window.location.assign(buildCalendlyUrl(name, email));
+    } catch {
+      setNavError(true);
     }
-    // If the async embed script hasn't loaded yet, retry briefly.
-    const start = Date.now();
-    const interval = window.setInterval(() => {
-      if (window.dayotter?.scan) {
-        window.dayotter.scan();
-        window.clearInterval(interval);
-      } else if (Date.now() - start > 5000) {
-        window.clearInterval(interval);
-      }
-    }, 250);
-    return () => window.clearInterval(interval);
-  }, []);
+  };
 
   return (
     <div
@@ -161,11 +145,15 @@ function ConsultationSuccessPanel() {
         Your details have been submitted successfully. Choose a convenient time to speak with our
         counsellor.
       </p>
+      {navError && (
+        <div className="mx-auto mt-5 flex max-w-md items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-left text-sm text-destructive">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span>Unable to open the scheduling page. Please try again.</span>
+        </div>
+      )}
       <div className="mt-6">
-        <Button asChild variant="gold" size="lg">
-          <button type="button" data-dayotter-popup data-url={DAYOTTER_BOOKING_URL}>
-            Book a Session
-          </button>
+        <Button variant="gold" size="lg" onClick={goToCalendly}>
+          {navError ? "Try Again" : "Book a Session"}
         </Button>
       </div>
     </div>
@@ -300,9 +288,10 @@ export function ConsultationForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [booked, setBooked] = useState({ name: "", email: "" });
 
   if (state === "done") {
-    return <ConsultationSuccessPanel />;
+    return <ConsultationSuccessPanel name={booked.name} email={booked.email} />;
   }
 
   return (
@@ -350,6 +339,7 @@ export function ConsultationForm() {
             throw new Error(result.message || "Submission failed. Please try again.");
           }
 
+          setBooked({ name: payload.fullName, email: payload.email });
           setState("done");
         } catch (err) {
           setState("idle");
