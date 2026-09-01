@@ -166,6 +166,9 @@ function ConsultationSuccess() {
           </div>
           <dl>
             <DetailRow label="Counsellor" value={s.assigned_to ?? "Your APEX counsellor"} />
+            {s.assigned_to_email && (
+              <DetailRow label="Counsellor Email" value={s.assigned_to_email} />
+            )}
             {dateText && <DetailRow label="Date" value={dateText} />}
             {timeText && <DetailRow label="Time" value={timeText} />}
             {s.event_type_name && (
@@ -173,6 +176,23 @@ function ConsultationSuccess() {
             )}
             {s.invitee_full_name && <DetailRow label="Student" value={s.invitee_full_name} />}
             {s.invitee_email && <DetailRow label="Email" value={s.invitee_email} />}
+            {meetingUrl && (
+              <div className="border-b border-border px-5 py-4 last:border-b-0 sm:px-6">
+                <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Meeting Link
+                </dt>
+                <dd className="mt-1.5 break-all text-base font-medium">
+                  <a
+                    href={meetingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-blue hover:underline"
+                  >
+                    {meetingUrl}
+                  </a>
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
 
