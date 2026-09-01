@@ -23,7 +23,7 @@ const clean = (v: unknown): string | undefined => {
   return t.slice(0, 200);
 };
 
-export const Route = createFileRoute("/consultation/success")({
+export const Route = createFileRoute("/consultation_/success")({
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
     event_type_name: clean(search["event_type_name"]),
     event_start_time: clean(search["event_start_time"]),
