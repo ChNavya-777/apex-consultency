@@ -8,7 +8,7 @@ import { z } from "zod";
  * browser fetch cannot read the success response.
  */
 const APPS_SCRIPT_WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycbwx1NhImXQ9HAC-zSzkkt56ZJteTH7-wN_Q-1nk4quf1SYMQZIiKk7yU2x-6--5xc-4/exec";
+  "https://script.google.com/macros/s/AKfycbxWEv930p5v-w_GuUGIwiw8FsERhiQpRk9k8yWRe4JUCUqJH6MG1lfehXa81HYW4tKB4A/exec";
 
 const consultationSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required."),
