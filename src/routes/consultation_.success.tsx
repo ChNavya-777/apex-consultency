@@ -12,8 +12,10 @@ type SearchParams = {
   event_start_time: string | undefined;
   event_end_time: string | undefined;
   assigned_to: string | undefined;
+  assigned_to_email: string | undefined;
   invitee_email: string | undefined;
   invitee_full_name: string | undefined;
+  location: string | undefined;
 };
 
 const clean = (v: unknown): string | undefined => {
