@@ -8,12 +8,12 @@ const description =
   "Your consultation has been scheduled with APEX Global Education. Review your counsellor, date and time details.";
 
 type SearchParams = {
-  event_type_name?: string;
-  event_start_time?: string;
-  event_end_time?: string;
-  assigned_to?: string;
-  invitee_email?: string;
-  invitee_full_name?: string;
+  event_type_name: string | undefined;
+  event_start_time: string | undefined;
+  event_end_time: string | undefined;
+  assigned_to: string | undefined;
+  invitee_email: string | undefined;
+  invitee_full_name: string | undefined;
 };
 
 const clean = (v: unknown): string | undefined => {
