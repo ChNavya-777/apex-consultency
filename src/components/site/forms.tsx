@@ -9,11 +9,6 @@ import { destinations } from "@/data/destinations";
 import { PROTOTYPE_NOTE } from "@/data/site";
 import { cn } from "@/lib/utils";
 
-declare global {
-  interface Window {
-    dayotter?: { scan: () => void; open: (url: string) => void };
-  }
-}
 
 const courseOptions = [
   "MS in Computer Science",
