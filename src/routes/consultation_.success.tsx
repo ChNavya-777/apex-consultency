@@ -31,8 +31,10 @@ export const Route = createFileRoute("/consultation_/success")({
     event_start_time: clean(search["event_start_time"]),
     event_end_time: clean(search["event_end_time"]),
     assigned_to: clean(search["assigned_to"]),
+    assigned_to_email: clean(search["assigned_to_email"]),
     invitee_email: clean(search["invitee_email"]),
     invitee_full_name: clean(search["invitee_full_name"]),
+    location: clean(search["location"]),
   }),
   head: () => ({
     meta: [
