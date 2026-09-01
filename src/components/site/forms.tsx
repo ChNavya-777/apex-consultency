@@ -339,6 +339,7 @@ export function ConsultationForm() {
             throw new Error(result.message || "Submission failed. Please try again.");
           }
 
+          setBooked({ name: payload.fullName, email: payload.email });
           setState("done");
         } catch (err) {
           setState("idle");
