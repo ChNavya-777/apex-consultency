@@ -111,8 +111,18 @@ function ConsultationSuccess() {
   const endText = formatTime(s.event_end_time);
   const timeText = startText && endText ? `${startText} – ${endText}` : startText;
 
+  const meetingUrl =
+    s.location && /^https?:\/\//i.test(s.location) ? s.location : undefined;
+
   const hasBooking = Boolean(
-    dateText || timeText || s.event_type_name || s.assigned_to || s.invitee_full_name || s.invitee_email,
+    dateText ||
+      timeText ||
+      s.event_type_name ||
+      s.assigned_to ||
+      s.assigned_to_email ||
+      s.invitee_full_name ||
+      s.invitee_email ||
+      meetingUrl,
   );
 
   if (!hasBooking) {
