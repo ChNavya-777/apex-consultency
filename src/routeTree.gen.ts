@@ -23,7 +23,7 @@ import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminStudentsRouteImport } from './routes/admin.students'
 import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
-import { Route as ConsultationSuccessRouteImport } from './routes/consultation.success'
+import { Route as ConsultationSuccessRouteImport } from './routes/consultation_.success'
 import { Route as CounsellorDashboardRouteImport } from './routes/counsellor.dashboard'
 import { Route as CounsellorLoginRouteImport } from './routes/counsellor.login'
 import { Route as CounsellorProfileRouteImport } from './routes/counsellor.profile'
@@ -121,9 +121,9 @@ const ApiConsultationRoute = ApiConsultationRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConsultationSuccessRoute = ConsultationSuccessRouteImport.update({
-  id: '/success',
-  path: '/success',
-  getParentRoute: () => ConsultationRoute,
+  id: '/consultation_/success',
+  path: '/consultation/success',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const CounsellorDashboardRoute = CounsellorDashboardRouteImport.update({
   id: '/counsellor/dashboard',
@@ -254,7 +254,7 @@ const StudentSessionsIdRoute = StudentSessionsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/consultation': typeof ConsultationRouteWithChildren
+  '/consultation': typeof ConsultationRoute
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -296,7 +296,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/consultation': typeof ConsultationRouteWithChildren
+  '/consultation': typeof ConsultationRoute
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -339,7 +339,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/consultation': typeof ConsultationRouteWithChildren
+  '/consultation': typeof ConsultationRoute
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -351,7 +351,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/api/consultation': typeof ApiConsultationRoute
-  '/consultation/success': typeof ConsultationSuccessRoute
+  '/consultation_/success': typeof ConsultationSuccessRoute
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/profile': typeof CounsellorProfileRoute
@@ -479,7 +479,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/students'
     | '/api/consultation'
-    | '/consultation/success'
+    | '/consultation_/success'
     | '/counsellor/dashboard'
     | '/counsellor/login'
     | '/counsellor/profile'
@@ -510,7 +510,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  ConsultationRoute: typeof ConsultationRouteWithChildren
+  ConsultationRoute: typeof ConsultationRoute
   ContactRoute: typeof ContactRoute
   FaqRoute: typeof FaqRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
@@ -522,6 +522,7 @@ export interface RootRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminStudentsRoute: typeof AdminStudentsRoute
   ApiConsultationRoute: typeof ApiConsultationRoute
+  ConsultationSuccessRoute: typeof ConsultationSuccessRoute
   CounsellorDashboardRoute: typeof CounsellorDashboardRoute
   CounsellorLoginRoute: typeof CounsellorLoginRoute
   CounsellorProfileRoute: typeof CounsellorProfileRoute
@@ -649,12 +650,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiConsultationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/consultation/success': {
-      id: '/consultation/success'
-      path: '/success'
+    '/consultation_/success': {
+      id: '/consultation_/success'
+      path: '/consultation/success'
       fullPath: '/consultation/success'
       preLoaderRoute: typeof ConsultationSuccessRouteImport
-      parentRoute: typeof ConsultationRoute
+      parentRoute: typeof rootRouteImport
     }
     '/counsellor/dashboard': {
       id: '/counsellor/dashboard'
@@ -834,22 +835,10 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface ConsultationRouteChildren {
-  ConsultationSuccessRoute: typeof ConsultationSuccessRoute
-}
-
-const ConsultationRouteChildren: ConsultationRouteChildren = {
-  ConsultationSuccessRoute: ConsultationSuccessRoute,
-}
-
-const ConsultationRouteWithChildren = ConsultationRoute._addFileChildren(
-  ConsultationRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  ConsultationRoute: ConsultationRouteWithChildren,
+  ConsultationRoute: ConsultationRoute,
   ContactRoute: ContactRoute,
   FaqRoute: FaqRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
@@ -861,6 +850,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   AdminStudentsRoute: AdminStudentsRoute,
   ApiConsultationRoute: ApiConsultationRoute,
+  ConsultationSuccessRoute: ConsultationSuccessRoute,
   CounsellorDashboardRoute: CounsellorDashboardRoute,
   CounsellorLoginRoute: CounsellorLoginRoute,
   CounsellorProfileRoute: CounsellorProfileRoute,
