@@ -18,7 +18,6 @@ export const Route = createFileRoute("/consultation")({
       { property: "og:url", content: "/consultation" },
     ],
     links: [{ rel: "canonical", href: "/consultation" }],
-    scripts: [{ src: "https://dayotter.com/embed.js", async: true }],
   }),
   component: Consultation,
 });
