@@ -20,8 +20,9 @@ const BOOKING_SHEET_ID =
   process.env["BOOKING_SHEET_ID"] ?? "1qAOhsbQSOAgS9a59ReIz3JGygbF4iyoF7pfSGoJXJgA";
 const BOOKING_RANGE = "A1:P2000";
 
-/** Student Sheet id — set as a project secret/env var when available. */
-const STUDENT_SHEET_ID = process.env["STUDENT_SHEET_ID"] ?? "";
+/** Student Sheet — the sheet the consultation form writes to. Read-only here. */
+const STUDENT_SHEET_ID =
+  process.env["STUDENT_SHEET_ID"] ?? "148rOw6K2fubWP4A7PitCKHxyqspz2pZ50wZAZGpOu-o";
 const STUDENT_RANGE = "A1:Z5000";
 
 /* ------------------------------------------------------------------ */
