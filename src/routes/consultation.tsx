@@ -1,7 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Section, SectionHeader, PageHero, Note } from "@/components/site/shared";
 import { ConsultationForm } from "@/components/site/forms";
+import { useSession } from "@/lib/portal-auth";
 import { site, PROTOTYPE_NOTE } from "@/data/site";
 
 const title = "Book a Free Study Abroad Consultation | APEX Global Education";
