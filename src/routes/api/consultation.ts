@@ -55,6 +55,9 @@ export const Route = createFileRoute("/api/consultation")({
         const data = parsed.data;
         // Property names expected by the Apps Script Web App.
         const payload = {
+          // "Submitted At" is generated here in Asia/Kolkata (IST) so the sheet
+          // value never depends on the Apps Script / spreadsheet timezone.
+          submittedAt: formatIstTimestamp(new Date()),
           fullName: data.fullName,
           phone: data.phone,
           email: data.email,
