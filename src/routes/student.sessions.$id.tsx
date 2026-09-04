@@ -3,7 +3,8 @@ import { ArrowLeft } from "lucide-react";
 import { StudentHeading, StudentLayout, useRequireStudent } from "@/components/student/StudentShell";
 import { studentNav } from "@/components/student/nav";
 import { SessionDetail, SessionEmptyState } from "@/components/sessions/SessionUI";
-import { findSession, getStudentSessions } from "@/lib/sessions";
+import { findSession } from "@/lib/sessions";
+import { useStudentPortalData } from "@/lib/use-portal-data";
 
 const title = "Consultation Details — APEX Student Portal";
 const description = "Details of your APEX consultation session.";
@@ -24,13 +25,14 @@ export const Route = createFileRoute("/student/sessions/$id")({
 function StudentSessionDetailPage() {
   const session = useRequireStudent();
   const { id } = Route.useParams();
+  const { data, isLoading } = useStudentPortalData(session?.email);
   if (!session) return null;
 
   /**
-   * Looked up only within the signed-in student's own sessions, so one student can never load
-   * another student's consultation.
+   * Looked up only within the signed-in student's own sessions (already filtered server-side),
+   * so one student can never load another student's consultation.
    */
-  const record = findSession(getStudentSessions(session.email), id);
+  const record = findSession(data.sessions, id);
 
   return (
     <StudentLayout session={session} nav={studentNav}>
@@ -47,7 +49,7 @@ function StudentSessionDetailPage() {
         <SessionDetail session={record} audience="student" />
       ) : (
         <SessionEmptyState
-          title="This consultation isn't available yet"
+          title={isLoading ? "Loading this consultation…" : "This consultation isn't available yet"}
           text="Your consultation details will appear here once your booking is confirmed."
           action={
             <Link
