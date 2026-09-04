@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { StudentHeading, StudentLayout, useRequireStudent } from "@/components/student/StudentShell";
 import { studentNav } from "@/components/student/nav";
 import { MeetingButton, SessionCard, SessionEmptyState } from "@/components/sessions/SessionUI";
-import { getStudentSessions } from "@/lib/sessions";
+import { isSessionUpcoming } from "@/lib/sessions";
+import { useStudentPortalData } from "@/lib/use-portal-data";
 import { cn } from "@/lib/utils";
 
 const title = "My Sessions — APEX Student Portal";
@@ -28,13 +29,20 @@ function StudentSessionsPage() {
   const session = useRequireStudent();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Upcoming");
 
-  /** Scoped to the signed-in student only — never another student's sessions. */
-  const sessions = useMemo(() => {
-    const mine = session ? getStudentSessions(session.email) : [];
-    return mine.filter((s) =>
-      tab === "Upcoming" ? s.status !== "completed" : s.status === "completed",
-    );
-  }, [session, tab]);
+  /** Filtered on the server by the signed-in student's normalised email. */
+  const { data, isLoading } = useStudentPortalData(session?.email);
+
+  /**
+   * Upcoming = active booking whose real meeting slot has not ended (shared slot logic).
+   * Everything else — past, cancelled, rescheduled — belongs to the Completed/past list.
+   */
+  const sessions = useMemo(
+    () =>
+      data.sessions.filter((s) =>
+        tab === "Upcoming" ? isSessionUpcoming(s) : !isSessionUpcoming(s),
+      ),
+    [data.sessions, tab],
+  );
 
   if (!session) return null;
 
@@ -68,7 +76,13 @@ function StudentSessionsPage() {
 
       {sessions.length === 0 ? (
         <SessionEmptyState
-          title={tab === "Upcoming" ? "No upcoming consultations" : "No completed consultations"}
+          title={
+            isLoading
+              ? "Loading your consultations…"
+              : tab === "Upcoming"
+                ? "No upcoming consultations"
+                : "No completed consultations"
+          }
           text="Your scheduled consultations will appear here once your booking is confirmed."
         />
       ) : (
