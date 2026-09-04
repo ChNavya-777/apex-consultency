@@ -72,9 +72,10 @@ function CounsellorSessionsPage() {
 
       {sessions.length === 0 ? (
         <SessionEmptyState
-          title="No sessions scheduled"
-          text="Your assigned consultations will appear here once the booking system is connected."
+          title={isLoading ? "Loading your sessions…" : "No sessions scheduled"}
+          text={`Consultations booked with you that fall under "${tab}" will appear here.`}
         />
+
       ) : (
         <div className="space-y-3">
           {sessions.map((s) => (
