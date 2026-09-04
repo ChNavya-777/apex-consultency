@@ -157,9 +157,5 @@ export function StudentTable({
       </div>
     </PortalCard>
 
-          </tbody>
-        </table>
-      </div>
-    </PortalCard>
   );
 }
