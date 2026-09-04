@@ -11,6 +11,8 @@ const title = "Student Login — APEX Global Education Portal";
 const description = "Sign in to the APEX Global Education Student Portal to view your study abroad journey.";
 
 export const Route = createFileRoute("/student/login")({
+  validateSearch: (search: Record<string, unknown>): { redirect?: "/consultation" } =>
+    search["redirect"] === "/consultation" ? { redirect: "/consultation" } : {},
   head: () => ({
     meta: [
       { title },
@@ -30,6 +32,8 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function StudentLoginPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
+  const afterSignIn = redirect === "/consultation" ? "/consultation" : "/student/dashboard";
   const login = useServerFn(studentLogin);
   const createAccount = useServerFn(createStudentAccount);
 
@@ -79,7 +83,7 @@ function StudentLoginPage() {
                   const local = signInStudent(email.trim(), password);
                   if (local) {
                     setPassword("");
-                    void navigate({ to: "/student/dashboard", replace: true });
+                    void navigate({ to: afterSignIn, replace: true });
                     return;
                   }
 
@@ -94,7 +98,7 @@ function StudentLoginPage() {
                     }
                     startStudentSession(result.name, result.email);
                     setPassword("");
-                    void navigate({ to: "/student/dashboard", replace: true });
+                    void navigate({ to: afterSignIn, replace: true });
                   } catch {
                     setError("Invalid email or password.");
                   } finally {

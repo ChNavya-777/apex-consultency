@@ -1,7 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Section, SectionHeader, PageHero, Note } from "@/components/site/shared";
 import { ConsultationForm } from "@/components/site/forms";
+import { useSession } from "@/lib/portal-auth";
 import { site, PROTOTYPE_NOTE } from "@/data/site";
 
 const title = "Book a Free Study Abroad Consultation | APEX Global Education";
@@ -30,6 +32,29 @@ const expect = [
 ];
 
 function Consultation() {
+  const session = useSession();
+  const navigate = useNavigate();
+
+  // Visitors must be signed in as a student before the consultation form is shown.
+  useEffect(() => {
+    if (session === undefined) return;
+    if (session === null || session.role !== "student") {
+      void navigate({
+        to: "/student/login",
+        search: { redirect: "/consultation" },
+        replace: true,
+      });
+    }
+  }, [session, navigate]);
+
+  if (session === undefined || session === null || session.role !== "student") {
+    return (
+      <Section>
+        <p className="text-sm text-muted-foreground">Checking your sign-in…</p>
+      </Section>
+    );
+  }
+
   return (
     <>
       <PageHero
