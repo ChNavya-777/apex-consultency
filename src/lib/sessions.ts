@@ -175,13 +175,17 @@ function zone(session: ConsultationSession): string | undefined {
 }
 
 function formatDateIn(date: Date, tz?: string): string {
+  // en-GB renders September as "Sept"; the portal shows the 3-letter form ("17 Sep 2026").
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     ...(tz ? { timeZone: tz } : {}),
-  }).format(date);
+  })
+    .format(date)
+    .replace("Sept", "Sep");
 }
+
 
 function formatTimeIn(date: Date, tz?: string): string {
   return new Intl.DateTimeFormat("en-US", {
