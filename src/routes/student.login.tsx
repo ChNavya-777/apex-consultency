@@ -32,6 +32,8 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function StudentLoginPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
+  const afterSignIn = redirect === "/consultation" ? "/consultation" : "/student/dashboard";
   const login = useServerFn(studentLogin);
   const createAccount = useServerFn(createStudentAccount);
 
