@@ -6,7 +6,7 @@
  * are marked unavailable — nothing is invented.
  */
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { PortalCard } from "@/components/portal/PortalShell";
 import type { StudentProfile } from "@/lib/portal-data";
 
@@ -100,8 +100,8 @@ export function StudentTable({
               students.map((student) => {
                 const open = openEmail === student.email;
                 return (
-                  <>
-                    <tr key={student.email} className="border-b border-border">
+                  <Fragment key={student.email}>
+                    <tr className="border-b border-border">
                       <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
                         <Cell value={student.fullName} />
                         {!student.found && (
@@ -142,13 +142,13 @@ export function StudentTable({
                       </td>
                     </tr>
                     {open && (
-                      <tr key={`${student.email}-details`} className="border-b border-border">
+                      <tr className="border-b border-border">
                         <td colSpan={columns.length} className="p-0">
                           <StudentDetails student={student} />
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })
             )}
