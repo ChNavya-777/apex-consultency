@@ -47,6 +47,19 @@ export function SessionStatusBadge({ status }: { status?: SessionStatus | undefi
 }
 
 /* ------------------------------------------------------------------ */
+/* Student email — contact link (the stored/normalised value is unchanged) */
+/* ------------------------------------------------------------------ */
+
+export function StudentEmailLink({ email }: { email: string }) {
+  if (!email) return <>—</>;
+  return (
+    <a href={`mailto:${email}`} className="hover:underline">
+      {email}
+    </a>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Meeting button — renders only for a valid URL                      */
 /* ------------------------------------------------------------------ */
 
@@ -252,7 +265,7 @@ export function SessionTable({
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">{s.studentName}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                      {s.studentEmail}
+                      <StudentEmailLink email={s.studentEmail} />
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">{s.counsellorName}</td>
                     <td className="whitespace-nowrap px-4 py-3">{sessionDateLabel(s)}</td>
@@ -329,7 +342,9 @@ export function SessionCard({
           <p className="font-display text-base font-semibold text-foreground">
             {session.studentName}
           </p>
-          <p className="truncate text-sm text-muted-foreground">{session.studentEmail}</p>
+          <p className="truncate text-sm text-muted-foreground">
+            <StudentEmailLink email={session.studentEmail} />
+          </p>
         </div>
         <SessionStatusBadge status={session.status} />
       </div>
@@ -422,7 +437,10 @@ export function SessionDetail({
         <SessionDetailSection title="Student">
           <dl>
             <DetailRow label="Student Name" value={session.studentName} />
-            <DetailRow label="Student Email" value={session.studentEmail} />
+            <DetailRow
+              label="Student Email"
+              value={<StudentEmailLink email={session.studentEmail} />}
+            />
           </dl>
           {studentAction && <div className="mt-4">{studentAction}</div>}
         </SessionDetailSection>

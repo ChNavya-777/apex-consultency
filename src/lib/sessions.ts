@@ -149,12 +149,23 @@ export function isSameDay(value: string, reference = new Date()): boolean {
 const TWELVE_HOURS = 12 * 60 * 60 * 1000;
 
 /**
+ * Length of a consultation slot, in minutes.
+ *
+ * The Calendly event type used for consultations ("Session meeting") is a 60-minute slot, and the
+ * Booking Sheet does not carry a duration column. It is only used to derive the slot START from a
+ * booking row that supplies the slot END (see `sessionSlot`); it never shifts a timestamp that the
+ * source already reports as a start.
+ */
+export const SESSION_DURATION_MINUTES = 60;
+
+/**
  * The scheduled slot for a booking.
  *
- * The Booking Sheet's `start_time` is not always the meeting start: for bookings written by the
- * webhook it can carry the moment the booking was created, while `end_time` carries the meeting
- * slot. When the two are more than 12h apart the later timestamp is treated as the scheduled
- * time and the duration is reported as unknown. Source values are never modified.
+ * For bookings written by the Calendly webhook, `start_time` carries the moment the booking was
+ * created and `end_time` carries the END of the meeting slot. When the two are more than 12h
+ * apart the row is read that way: the later timestamp is the slot end, and the slot start is that
+ * end minus the consultation duration — which is the time Calendly itself reports to the invitee
+ * and the counsellor. Source values are never modified.
  */
 export function sessionSlot(session: ConsultationSession): {
   start: Date | null;
@@ -163,11 +174,15 @@ export function sessionSlot(session: ConsultationSession): {
   const start = parse(session.startTime);
   const end = parse(session.endTime);
   if (start && end && end.getTime() - start.getTime() > TWELVE_HOURS) {
-    return { start: end, end: null };
+    return {
+      start: new Date(end.getTime() - SESSION_DURATION_MINUTES * 60 * 1000),
+      end,
+    };
   }
   if (start && end && end.getTime() < start.getTime()) return { start: end, end: start };
   return { start, end };
 }
+
 
 function zone(session: ConsultationSession): string | undefined {
   const tz = session.timezone?.trim();

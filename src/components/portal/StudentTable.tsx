@@ -111,8 +111,11 @@ export function StudentTable({
                         )}
                       </td>
                       <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
-                        {student.email}
+                        <a href={`mailto:${student.email}`} className="hover:underline">
+                          {student.email}
+                        </a>
                       </td>
+
                       <td className="whitespace-nowrap px-5 py-3">
                         <Cell value={student.phone} />
                       </td>
