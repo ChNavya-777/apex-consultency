@@ -32,6 +32,29 @@ const expect = [
 ];
 
 function Consultation() {
+  const session = useSession();
+  const navigate = useNavigate();
+
+  // Visitors must be signed in as a student before the consultation form is shown.
+  useEffect(() => {
+    if (session === undefined) return;
+    if (session === null || session.role !== "student") {
+      void navigate({
+        to: "/student/login",
+        search: { redirect: "/consultation" },
+        replace: true,
+      });
+    }
+  }, [session, navigate]);
+
+  if (session === undefined || session === null || session.role !== "student") {
+    return (
+      <Section>
+        <p className="text-sm text-muted-foreground">Checking your sign-in…</p>
+      </Section>
+    );
+  }
+
   return (
     <>
       <PageHero
