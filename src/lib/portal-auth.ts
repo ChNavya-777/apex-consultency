@@ -243,6 +243,21 @@ export function signInStudent(email: string, password: string): PortalSession | 
   return session;
 }
 
+/**
+ * Start a student portal session for an account verified by the studentcredentials
+ * Apps Script. No password is ever placed in the session.
+ */
+export function startStudentSession(name: string, email: string): PortalSession {
+  const session: PortalSession = {
+    role: "student",
+    name: name.trim(),
+    email: email.trim().toLowerCase(),
+  };
+  writeSession(session);
+  return session;
+}
+
+
 export function signOut() {
   writeSession(null);
 }
