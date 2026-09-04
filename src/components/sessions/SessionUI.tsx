@@ -452,8 +452,15 @@ export function SessionDetail({
             label={audience === "student" ? "Counsellor Name" : "Assigned Counsellor"}
             value={session.counsellorName}
           />
-          {audience === "admin" && session.counsellorEmail && (
-            <DetailRow label="Counsellor Email" value={session.counsellorEmail} />
+          {audience !== "counsellor" && session.counsellorEmail && (
+            <DetailRow
+              label="Counsellor Email"
+              value={
+                <a href={`mailto:${session.counsellorEmail}`} className="hover:underline">
+                  {session.counsellorEmail}
+                </a>
+              }
+            />
           )}
         </dl>
       </SessionDetailSection>
@@ -467,7 +474,7 @@ export function SessionDetail({
         </dl>
       </SessionDetailSection>
 
-      {audience !== "student" && (session.questionsAndAnswers?.length ?? 0) > 0 && (
+      {(session.questionsAndAnswers?.length ?? 0) > 0 && (
         <SessionDetailSection title="Booking Questions">
           <dl>
             {session.questionsAndAnswers?.map((qa, i) => (
