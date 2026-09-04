@@ -65,6 +65,8 @@ export function StudentTable({
   emptyTitle?: string;
   emptyText?: string;
 }) {
+  const [openEmail, setOpenEmail] = useState<string | null>(null);
+
   return (
     <PortalCard className="p-0">
       {note && (
@@ -74,9 +76,9 @@ export function StudentTable({
         <table className="w-full text-left text-sm">
           <thead className="border-b border-border bg-surface">
             <tr>
-              {columns.map((c) => (
+              {columns.map((c, i) => (
                 <th
-                  key={c}
+                  key={c || `col-${i}`}
                   className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                 >
                   {c}
@@ -95,37 +97,66 @@ export function StudentTable({
                 </td>
               </tr>
             ) : (
-              students.map((student) => (
-                <tr key={student.email} className="border-b border-border last:border-0">
-                  <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
-                    <Cell value={student.fullName} />
-                    {!student.found && (
-                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                        Profile unavailable
-                      </span>
+              students.map((student) => {
+                const open = openEmail === student.email;
+                return (
+                  <>
+                    <tr key={student.email} className="border-b border-border">
+                      <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
+                        <Cell value={student.fullName} />
+                        {!student.found && (
+                          <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            Profile unavailable
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
+                        {student.email}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3">
+                        <Cell value={student.phone} />
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3">
+                        <Cell value={student.currentDegree} />
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3">
+                        <Cell value={student.preferredCountry} />
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3">
+                        <Cell value={student.preferredCourse} />
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3">
+                        <Cell value={student.preferredIntake} />
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-right">
+                        {student.found && (
+                          <button
+                            type="button"
+                            aria-expanded={open}
+                            onClick={() => setOpenEmail(open ? null : student.email)}
+                            className="rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface"
+                          >
+                            {open ? "Hide details" : "More details"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    {open && (
+                      <tr key={`${student.email}-details`} className="border-b border-border">
+                        <td colSpan={columns.length} className="p-0">
+                          <StudentDetails student={student} />
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
-                    {student.email}
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3">
-                    <Cell value={student.phone} />
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3">
-                    <Cell value={student.currentDegree} />
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3">
-                    <Cell value={student.preferredCountry} />
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3">
-                    <Cell value={student.preferredCourse} />
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3">
-                    <Cell value={student.preferredIntake} />
-                  </td>
-                </tr>
-              ))
+                  </>
+                );
+              })
             )}
+          </tbody>
+        </table>
+      </div>
+    </PortalCard>
+
           </tbody>
         </table>
       </div>
