@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PortalCard, PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
+import { PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { counsellorNav } from "@/components/portal/nav";
+import { StudentTable } from "@/components/portal/StudentTable";
+import { useCounsellorPortalData } from "@/lib/use-portal-data";
 
 const title = "My Students — APEX Global Education Portal";
 const description = "Students associated with your consultation sessions.";
@@ -18,54 +20,24 @@ export const Route = createFileRoute("/counsellor/students")({
   component: CounsellorStudentsPage,
 });
 
-const columns = [
-  "Full Name",
-  "Email",
-  "Phone",
-  "Current Degree",
-  "Preferred Country",
-  "Preferred Course",
-  "Preferred Intake",
-];
-
 function CounsellorStudentsPage() {
   const session = useRequireRole("counsellor");
+  /**
+   * Students are derived on the server from this counsellor's own bookings only:
+   * counsellor login email → Booking Sheet `counsellor_email` → `student_email` → Student Sheet.
+   */
+  const { data, isLoading } = useCounsellorPortalData(session?.email);
   if (!session) return null;
 
   return (
     <PortalLayout session={session} nav={counsellorNav}>
       <PortalHeading title="My Students" text="Students linked to your consultation sessions." />
 
-      <PortalCard className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-surface">
-              <tr>
-                {columns.map((c) => (
-                  <th
-                    key={c}
-                    className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                  >
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan={columns.length} className="px-5 py-14 text-center">
-                  <p className="font-display text-base font-semibold text-foreground">
-                    No students assigned yet
-                  </p>
-                  <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                    Students associated with your consultation sessions will appear here.
-                  </p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </PortalCard>
+      <StudentTable
+        students={data.students}
+        note={data.studentSourceError}
+        emptyTitle={isLoading ? "Loading your students…" : "No students assigned yet"}
+      />
     </PortalLayout>
   );
 }

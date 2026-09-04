@@ -26,19 +26,37 @@ export type ConsultationSession = {
   bookingUid: string;
   studentName: string;
   studentEmail: string;
-  /** Source "Mentor Name", displayed as Counsellor. */
+  /** Source "counsellor_name", displayed as Counsellor. */
   counsellorName: string;
-  /** ISO-ish start/end timestamps from the source. */
+  /** ISO-ish start/end timestamps from the source — never mutated. */
   startTime: string;
   endTime: string;
   meetingUrl?: string | null;
-  status?: SessionStatus;
+  status?: SessionStatus | undefined;
   /**
    * Preferred future match key for the student record. When the external source cannot supply
    * an ID, `studentEmail` is the temporary fallback (see `sessionBelongsToStudent`).
    */
   studentId?: string | null;
+
+  /* --- Booking Sheet fields (optional: older readers don't set them) --- */
+  /** Booking Sheet `counsellor_email` — the counsellor assignment key. */
+  counsellorEmail?: string;
+  /** IANA timezone from the booking (`timezone`), used for display. */
+  timezone?: string | null;
+  sessionName?: string;
+  bookingEvent?: string;
+  bookingStatus?: string;
+  inviteeStatus?: string;
+  eventUri?: string;
+  cancelUrl?: string | null;
+  rescheduleUrl?: string | null;
+  /** Raw `questions_and_answers` cell, already parsed to pairs where possible. */
+  questionsAndAnswers?: { question: string; answer: string }[];
+  /** True when the source marks this booking as rescheduled (history, not active). */
+  rescheduled?: boolean;
 };
+
 
 /* ------------------------------------------------------------------ */
 /* Readers (empty until the booking source is connected)              */
@@ -122,4 +140,102 @@ export function isSameDay(value: string, reference = new Date()): boolean {
     d.getMonth() === reference.getMonth() &&
     d.getDate() === reference.getDate()
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Booking Sheet time handling                                        */
+/* ------------------------------------------------------------------ */
+
+const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+
+/**
+ * The scheduled slot for a booking.
+ *
+ * The Booking Sheet's `start_time` is not always the meeting start: for bookings written by the
+ * webhook it can carry the moment the booking was created, while `end_time` carries the meeting
+ * slot. When the two are more than 12h apart the later timestamp is treated as the scheduled
+ * time and the duration is reported as unknown. Source values are never modified.
+ */
+export function sessionSlot(session: ConsultationSession): {
+  start: Date | null;
+  end: Date | null;
+} {
+  const start = parse(session.startTime);
+  const end = parse(session.endTime);
+  if (start && end && end.getTime() - start.getTime() > TWELVE_HOURS) {
+    return { start: end, end: null };
+  }
+  if (start && end && end.getTime() < start.getTime()) return { start: end, end: start };
+  return { start, end };
+}
+
+function zone(session: ConsultationSession): string | undefined {
+  const tz = session.timezone?.trim();
+  return tz ? tz : undefined;
+}
+
+function formatDateIn(date: Date, tz?: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    ...(tz ? { timeZone: tz } : {}),
+  }).format(date);
+}
+
+function formatTimeIn(date: Date, tz?: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    ...(tz ? { timeZone: tz } : {}),
+  }).format(date);
+}
+
+/** Readable date for a booking, in the booking's own timezone — e.g. "17 Sep 2026". */
+export function sessionDateLabel(session: ConsultationSession): string {
+  const { start } = sessionSlot(session);
+  if (!start) return session.startTime || "—";
+  return formatDateIn(start, zone(session));
+}
+
+/** Readable time for a booking — e.g. "12:00 PM" or "12:00 PM – 12:30 PM". */
+export function sessionTimeLabel(session: ConsultationSession): string {
+  const { start, end } = sessionSlot(session);
+  if (!start) return session.startTime || "—";
+  const tz = zone(session);
+  const startLabel = formatTimeIn(start, tz);
+  return end ? `${startLabel} – ${formatTimeIn(end, tz)}` : startLabel;
+}
+
+/** Slot end used for elapsed-time checks (falls back to the slot start). */
+function slotEnd(session: ConsultationSession): Date | null {
+  const { start, end } = sessionSlot(session);
+  return end ?? start;
+}
+
+export function isSessionCancelled(session: ConsultationSession): boolean {
+  return session.status === "cancelled";
+}
+
+/** Same calendar day as `reference`, evaluated in the booking's timezone. */
+export function isSessionToday(session: ConsultationSession, reference = new Date()): boolean {
+  const { start } = sessionSlot(session);
+  if (!start) return false;
+  const tz = zone(session);
+  return formatDateIn(start, tz) === formatDateIn(reference, tz);
+}
+
+/** Active (not cancelled) and still in the future. */
+export function isSessionUpcoming(session: ConsultationSession, reference = new Date()): boolean {
+  if (isSessionCancelled(session) || session.rescheduled) return false;
+  const end = slotEnd(session);
+  return !!end && end.getTime() >= reference.getTime();
+}
+
+/** Actually occurred: not cancelled and its slot has passed. */
+export function isSessionCompleted(session: ConsultationSession, reference = new Date()): boolean {
+  if (isSessionCancelled(session) || session.rescheduled) return false;
+  const end = slotEnd(session);
+  return !!end && end.getTime() < reference.getTime();
 }

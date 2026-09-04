@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { counsellorNav } from "@/components/portal/nav";
 import { SessionCard, SessionEmptyState, MeetingButton } from "@/components/sessions/SessionUI";
-import { getCounsellorSessions, isSameDay } from "@/lib/sessions";
+import { isSessionCompleted, isSessionToday, isSessionUpcoming } from "@/lib/sessions";
+import { useCounsellorPortalData } from "@/lib/use-portal-data";
 import { cn } from "@/lib/utils";
 
 const title = "My Sessions — APEX Global Education Portal";
@@ -28,15 +29,16 @@ function CounsellorSessionsPage() {
   const session = useRequireRole("counsellor");
   const [tab, setTab] = useState<(typeof tabs)[number]>("Today");
 
-  /** Scoped to the signed-in counsellor only — never another counsellor's sessions. */
+  /** Filtered on the server by the signed-in counsellor's login email. */
+  const { data, isLoading } = useCounsellorPortalData(session?.email);
+
   const sessions = useMemo(() => {
-    const mine = session ? getCounsellorSessions(session.name) : [];
-    return mine.filter((s) => {
-      if (tab === "Today") return isSameDay(s.startTime);
-      if (tab === "Upcoming") return s.status === "upcoming" || s.status === "in_progress";
-      return s.status === "completed";
+    return data.sessions.filter((s) => {
+      if (tab === "Today") return isSessionToday(s) && isSessionUpcoming(s);
+      if (tab === "Upcoming") return isSessionUpcoming(s);
+      return isSessionCompleted(s);
     });
-  }, [session, tab]);
+  }, [data.sessions, tab]);
 
   if (!session) return null;
 

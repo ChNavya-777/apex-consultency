@@ -2,8 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { EmptyState, PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { counsellorNav } from "@/components/portal/nav";
 import { MeetingButton, SessionCard, SessionEmptyState } from "@/components/sessions/SessionUI";
-import { getCounsellorSessions, isSameDay } from "@/lib/sessions";
+import { isSessionToday, isSessionUpcoming } from "@/lib/sessions";
 import type { ConsultationSession } from "@/lib/sessions";
+import { useCounsellorPortalData } from "@/lib/use-portal-data";
+import { StudentTable } from "@/components/portal/StudentTable";
 
 const title = "Counsellor Dashboard — APEX Global Education Portal";
 const description = "Your APEX Global Education consultation workspace.";
@@ -23,14 +25,15 @@ export const Route = createFileRoute("/counsellor/dashboard")({
 
 function CounsellorDashboardPage() {
   const session = useRequireRole("counsellor");
+  /** Scoped on the server to this counsellor's login email only. */
+  const { data, isLoading } = useCounsellorPortalData(session?.email);
   if (!session) return null;
 
   const firstName = session.name.split(" ")[0] ?? session.name;
 
-  /** Scoped to this counsellor only. Empty until the booking source is connected. */
-  const mine = getCounsellorSessions(session.name);
-  const today = mine.filter((s) => isSameDay(s.startTime));
-  const upcoming = mine.filter((s) => s.status === "upcoming" || s.status === "in_progress");
+  const mine = data.sessions;
+  const today = mine.filter((s) => isSessionToday(s) && isSessionUpcoming(s));
+  const upcoming = mine.filter((s) => isSessionUpcoming(s));
 
   return (
     <PortalLayout session={session} nav={counsellorNav}>
@@ -53,8 +56,8 @@ function CounsellorDashboardPage() {
         </h2>
         {today.length === 0 ? (
           <SessionEmptyState
-            title="No sessions scheduled today."
-            text="Your assigned consultations will appear here once the booking system is connected."
+            title={isLoading ? "Loading your sessions…" : "No sessions scheduled today."}
+            text="Sessions booked with you for today will appear here."
           />
         ) : (
           <SessionList sessions={today} />
@@ -67,8 +70,8 @@ function CounsellorDashboardPage() {
         </h2>
         {upcoming.length === 0 ? (
           <SessionEmptyState
-            title="No upcoming consultations."
-            text="Consultations assigned to you will appear here once the booking system is connected."
+            title={isLoading ? "Loading your sessions…" : "No upcoming consultations."}
+            text="Consultations booked with you will appear here."
           />
         ) : (
           <SessionList sessions={upcoming} />
@@ -77,10 +80,14 @@ function CounsellorDashboardPage() {
 
       <section>
         <h2 className="mb-3 font-display text-lg font-semibold text-foreground">My Students</h2>
-        <EmptyState
-          title="No students assigned yet."
-          text="Students linked to your consultation sessions will appear here."
-        />
+        {data.students.length === 0 ? (
+          <EmptyState
+            title={isLoading ? "Loading your students…" : "No students assigned yet."}
+            text="Students linked to your consultation sessions will appear here."
+          />
+        ) : (
+          <StudentTable students={data.students} note={data.studentSourceError} />
+        )}
       </section>
     </PortalLayout>
   );

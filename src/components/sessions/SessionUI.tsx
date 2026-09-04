@@ -9,10 +9,11 @@ import type { ReactNode } from "react";
 import { CalendarDays, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  formatSessionDate,
-  formatTimeRange,
   isValidMeetingUrl,
+  sessionDateLabel,
+  sessionSlot,
   sessionStatusLabels,
+  sessionTimeLabel,
   type ConsultationSession,
   type SessionStatus,
 } from "@/lib/sessions";
@@ -254,9 +255,9 @@ export function SessionTable({
                       {s.studentEmail}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">{s.counsellorName}</td>
-                    <td className="whitespace-nowrap px-4 py-3">{formatSessionDate(s.startTime)}</td>
-                    <td className="whitespace-nowrap px-4 py-3">{formatSessionTime(s.startTime)}</td>
-                    <td className="whitespace-nowrap px-4 py-3">{formatSessionTime(s.endTime)}</td>
+                    <td className="whitespace-nowrap px-4 py-3">{sessionDateLabel(s)}</td>
+                    <td className="whitespace-nowrap px-4 py-3">{startTimeLabel(s)}</td>
+                    <td className="whitespace-nowrap px-4 py-3">{endTimeLabel(s)}</td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <SessionStatusBadge status={s.status} />
                     </td>
@@ -296,8 +297,16 @@ export function SessionTable({
   );
 }
 
-function formatSessionTime(value: string) {
-  return formatTimeRange(value, value).split(" – ")[0] ?? value;
+/** Slot start only — "—" when the source has no parseable time. */
+function startTimeLabel(session: ConsultationSession) {
+  const label = sessionTimeLabel(session);
+  return label.split(" – ")[0] ?? label;
+}
+
+/** Slot end only — "—" when the source does not provide a distinct end time. */
+function endTimeLabel(session: ConsultationSession) {
+  const parts = sessionTimeLabel(session).split(" – ");
+  return parts.length > 1 ? parts[1] : "—";
 }
 
 /* ------------------------------------------------------------------ */
@@ -330,13 +339,13 @@ export function SessionCard({
           <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Date
           </dt>
-          <dd className="text-foreground">{formatSessionDate(session.startTime)}</dd>
+          <dd className="text-foreground">{sessionDateLabel(session)}</dd>
         </div>
         <div>
           <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Time
           </dt>
-          <dd className="text-foreground">{formatTimeRange(session.startTime, session.endTime)}</dd>
+          <dd className="text-foreground">{sessionTimeLabel(session)}</dd>
         </div>
         {showCounsellor && (
           <div>
@@ -397,8 +406,15 @@ export function SessionDetail({
     <div className="space-y-5">
       <SessionDetailSection title={audience === "student" ? "Consultation" : "Booking Information"}>
         <dl>
+          {session.sessionName && <DetailRow label="Session" value={session.sessionName} />}
           <DetailRow label="Booking UID" value={session.bookingUid} />
           <DetailRow label="Session Status" value={<SessionStatusBadge status={session.status} />} />
+          {session.bookingStatus && (
+            <DetailRow label="Booking Status" value={session.bookingStatus} />
+          )}
+          {session.inviteeStatus && (
+            <DetailRow label="Invitee Status" value={session.inviteeStatus} />
+          )}
         </dl>
       </SessionDetailSection>
 
@@ -418,16 +434,57 @@ export function SessionDetail({
             label={audience === "student" ? "Counsellor Name" : "Assigned Counsellor"}
             value={session.counsellorName}
           />
+          {audience === "admin" && session.counsellorEmail && (
+            <DetailRow label="Counsellor Email" value={session.counsellorEmail} />
+          )}
         </dl>
       </SessionDetailSection>
 
       <SessionDetailSection title="Schedule">
         <dl>
-          <DetailRow label="Date" value={formatSessionDate(session.startTime)} />
-          <DetailRow label="Start Time" value={formatSessionTime(session.startTime)} />
-          <DetailRow label="End Time" value={formatSessionTime(session.endTime)} />
+          <DetailRow label="Date" value={sessionDateLabel(session)} />
+          <DetailRow label="Start Time" value={startTimeLabel(session)} />
+          <DetailRow label="End Time" value={endTimeLabel(session)} />
+          {session.timezone && <DetailRow label="Timezone" value={session.timezone} />}
         </dl>
       </SessionDetailSection>
+
+      {audience !== "student" && (session.questionsAndAnswers?.length ?? 0) > 0 && (
+        <SessionDetailSection title="Booking Questions">
+          <dl>
+            {session.questionsAndAnswers?.map((qa, i) => (
+              <DetailRow key={`${qa.question}-${i}`} label={qa.question || "Answer"} value={qa.answer || "—"} />
+            ))}
+          </dl>
+        </SessionDetailSection>
+      )}
+
+      {(session.rescheduleUrl || session.cancelUrl) && sessionSlot(session).start && (
+        <SessionDetailSection title="Manage Booking">
+          <div className="flex flex-wrap gap-2">
+            {session.rescheduleUrl && (
+              <a
+                href={session.rescheduleUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-input bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+              >
+                Reschedule
+              </a>
+            )}
+            {session.cancelUrl && (
+              <a
+                href={session.cancelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-input bg-background px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface"
+              >
+                Cancel
+              </a>
+            )}
+          </div>
+        </SessionDetailSection>
+      )}
 
       {isValidMeetingUrl(session.meetingUrl) && (
         <SessionDetailSection title="Meeting">

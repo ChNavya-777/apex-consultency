@@ -9,7 +9,8 @@ import {
   emptySessionFilters,
   type SessionFilterState,
 } from "@/components/sessions/SessionUI";
-import { getAllSessions, isSameDay } from "@/lib/sessions";
+import { isSessionCompleted, isSessionToday, isSessionUpcoming } from "@/lib/sessions";
+import { useAdminPortalData } from "@/lib/use-portal-data";
 import { useCounsellors } from "@/lib/portal-auth";
 import { cn } from "@/lib/utils";
 
@@ -37,14 +38,16 @@ function AdminSessionsPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("All");
   const [filters, setFilters] = useState<SessionFilterState>(emptySessionFilters);
 
+  const { data } = useAdminPortalData();
+
   const sessions = useMemo(() => {
-    const all = getAllSessions();
+    const all = data.sessions;
     return all.filter((s) => {
-      if (tab === "Upcoming" && s.status !== "upcoming" && s.status !== "in_progress") return false;
-      if (tab === "Completed" && s.status !== "completed") return false;
+      if (tab === "Upcoming" && !isSessionUpcoming(s)) return false;
+      if (tab === "Completed" && !isSessionCompleted(s)) return false;
       if (filters.status !== "all" && s.status !== filters.status) return false;
       if (filters.counsellor !== "all" && s.counsellorName !== filters.counsellor) return false;
-      if (filters.date && !isSameDay(s.startTime, new Date(filters.date))) return false;
+      if (filters.date && !isSessionToday(s, new Date(filters.date))) return false;
       const q = filters.search.trim().toLowerCase();
       if (
         q &&
@@ -54,7 +57,7 @@ function AdminSessionsPage() {
       }
       return true;
     });
-  }, [tab, filters]);
+  }, [data.sessions, tab, filters]);
 
   if (!session) return null;
 

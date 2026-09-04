@@ -3,7 +3,8 @@ import { ArrowLeft } from "lucide-react";
 import { PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { adminNav } from "@/components/portal/nav";
 import { SessionDetail, SessionEmptyState } from "@/components/sessions/SessionUI";
-import { findSession, getAllSessions } from "@/lib/sessions";
+import { findSession } from "@/lib/sessions";
+import { useAdminPortalData } from "@/lib/use-portal-data";
 
 const title = "Consultation Details — APEX Global Education Portal";
 const description = "Full details of a scheduled student consultation.";
@@ -24,9 +25,10 @@ export const Route = createFileRoute("/admin/sessions/$id")({
 function AdminSessionDetailPage() {
   const session = useRequireRole("super_admin");
   const { id } = Route.useParams();
+  const { data } = useAdminPortalData();
   if (!session) return null;
 
-  const record = findSession(getAllSessions(), id);
+  const record = findSession(data.sessions, id);
 
   return (
     <PortalLayout session={session} nav={adminNav}>
