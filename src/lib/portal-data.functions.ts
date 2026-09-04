@@ -11,7 +11,7 @@
  */
 
 import { createServerFn } from "@tanstack/react-start";
-import { normalizeEmail } from "@/lib/counsellor-roster";
+import { findRosterCounsellor, normalizeEmail } from "@/lib/counsellor-roster";
 import type { ConsultationSession, SessionStatus } from "@/lib/sessions";
 import type { PortalData, StudentProfile } from "@/lib/portal-data";
 
@@ -94,7 +94,12 @@ function toSession(row: Record<string, string>): ConsultationSession | null {
     bookingUid,
     studentName: row["student_name"] ?? "",
     studentEmail,
-    counsellorName: row["counsellor_name"] ?? "",
+    // Booking Sheet name is authoritative; the mentor roster only fills a blank name for a
+    // counsellor_email that matches — unmatched counsellors are never substituted.
+    counsellorName:
+      (row["counsellor_name"] ?? "").trim() ||
+      findRosterCounsellor(counsellorEmail)?.name ||
+      "",
     counsellorEmail,
     startTime,
     endTime,
