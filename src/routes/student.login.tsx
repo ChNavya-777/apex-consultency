@@ -83,7 +83,7 @@ function StudentLoginPage() {
                   const local = signInStudent(email.trim(), password);
                   if (local) {
                     setPassword("");
-                    void navigate({ to: "/student/dashboard", replace: true });
+                    void navigate({ to: afterSignIn, replace: true });
                     return;
                   }
 
@@ -98,7 +98,7 @@ function StudentLoginPage() {
                     }
                     startStudentSession(result.name, result.email);
                     setPassword("");
-                    void navigate({ to: "/student/dashboard", replace: true });
+                    void navigate({ to: afterSignIn, replace: true });
                   } catch {
                     setError("Invalid email or password.");
                   } finally {
