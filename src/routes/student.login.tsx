@@ -11,6 +11,9 @@ const title = "Student Login — APEX Global Education Portal";
 const description = "Sign in to the APEX Global Education Student Portal to view your study abroad journey.";
 
 export const Route = createFileRoute("/student/login")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: search["redirect"] === "/consultation" ? ("/consultation" as const) : undefined,
+  }),
   head: () => ({
     meta: [
       { title },
