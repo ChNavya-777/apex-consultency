@@ -55,7 +55,7 @@ export async function readSheetRows(spreadsheetId: string, range: string): Promi
   if (!header) return [];
 
   const keys = header.map((h) => String(h ?? "").trim());
-  return rest
+  const rows = rest
     .filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""))
     .map((row) => {
       const obj: SheetRow = {};
@@ -64,4 +64,7 @@ export async function readSheetRows(spreadsheetId: string, range: string): Promi
       });
       return obj;
     });
+
+  cache.set(cacheKey, { rows, at: Date.now() });
+  return rows;
 }
