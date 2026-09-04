@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { destinations } from "@/data/destinations";
 import { PROTOTYPE_NOTE } from "@/data/site";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/lib/portal-auth";
 
 
 const courseOptions = [
@@ -285,6 +286,10 @@ export function ContactForm() {
 }
 
 export function ConsultationForm() {
+  // When a student is signed in, the account email is the form email — it cannot be edited.
+  const session = useSession();
+  const studentEmail = session?.role === "student" ? session.email : "";
+  const studentName = session?.role === "student" ? session.name : "";
   const [errors, setErrors] = useState<Errors>({});
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -310,7 +315,7 @@ export function ConsultationForm() {
         const payload = {
           fullName: String(data.get("fullName") ?? "").trim(),
           phone: String(data.get("phone") ?? "").trim(),
-          email: String(data.get("email") ?? "").trim(),
+          email: (studentEmail || String(data.get("email") ?? "")).trim().toLowerCase(),
           degree: String(data.get("degree") ?? "").trim(),
           branch: String(data.get("branch") ?? "").trim(),
           graduationYear: String(data.get("graduationYear") ?? "").trim(),
@@ -360,6 +365,7 @@ export function ConsultationForm() {
             id="fullName"
             name="fullName"
             autoComplete="name"
+            defaultValue={studentName}
             aria-invalid={!!errors["fullName"]}
           />
         </Field>
@@ -379,7 +385,15 @@ export function ConsultationForm() {
             type="email"
             autoComplete="email"
             aria-invalid={!!errors["email"]}
+            {...(studentEmail
+              ? { value: studentEmail, readOnly: true, className: "bg-surface/60" }
+              : {})}
           />
+          {studentEmail && (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Your account email is used for this request.
+            </p>
+          )}
         </Field>
         <Field id="degree" label="Current degree" required error={errors["degree"]}>
           <SelectInput
