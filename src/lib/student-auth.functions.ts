@@ -82,7 +82,7 @@ export const createStudentAccount = createServerFn({ method: "POST" })
     const email = normalizeEmail(data.email);
 
     const existing = await callScript({ action: "checkEmail", email });
-    if (existing && (existing.exists === true || succeeded(existing))) {
+    if (existing?.exists === true) {
       return { success: false, message: GENERIC_CREATE_ERROR };
     }
 
