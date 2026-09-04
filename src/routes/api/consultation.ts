@@ -26,6 +26,22 @@ const consultationSchema = z.object({
   message: z.string().trim().default(""),
 });
 
+/** "YYYY-MM-DD HH:mm:ss" in Asia/Kolkata (IST) — the Student Sheet's expected format. */
+function formatIstTimestamp(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
 export const Route = createFileRoute("/api/consultation")({
   server: {
     handlers: {
@@ -55,6 +71,9 @@ export const Route = createFileRoute("/api/consultation")({
         const data = parsed.data;
         // Property names expected by the Apps Script Web App.
         const payload = {
+          // "Submitted At" is generated here in Asia/Kolkata (IST) so the sheet
+          // value never depends on the Apps Script / spreadsheet timezone.
+          submittedAt: formatIstTimestamp(new Date()),
           fullName: data.fullName,
           phone: data.phone,
           email: data.email,
