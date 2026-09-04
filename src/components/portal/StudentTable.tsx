@@ -6,6 +6,7 @@
  * are marked unavailable — nothing is invented.
  */
 
+import { useState } from "react";
 import { PortalCard } from "@/components/portal/PortalShell";
 import type { StudentProfile } from "@/lib/portal-data";
 
@@ -17,12 +18,41 @@ const columns = [
   "Preferred Country",
   "Preferred Course",
   "Preferred Intake",
+  "",
 ];
 
 function Cell({ value }: { value: string | null }) {
   if (!value) return <span className="text-muted-foreground/60">—</span>;
   return <>{value}</>;
 }
+
+/** The remaining Student Sheet fields, shown when a row is expanded. */
+function StudentDetails({ student }: { student: StudentProfile }) {
+  const fields: [string, string | null][] = [
+    ["Branch / Specialisation", student.branch],
+    ["Graduation Year", student.graduationYear],
+    ["CGPA / Percentage", student.cgpa],
+    ["IELTS / PTE Status", student.englishTest],
+    ["Budget Range", student.budget],
+    ["Submitted At", student.submittedAt],
+    ["Anything Else We Should Know", student.additionalInfo],
+  ];
+  return (
+    <div className="grid gap-4 bg-surface px-5 py-4 sm:grid-cols-2 lg:grid-cols-3">
+      {fields.map(([label, value]) => (
+        <div key={label}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {label}
+          </p>
+          <p className="mt-1 text-sm text-foreground">
+            <Cell value={value} />
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 export function StudentTable({
   students,
