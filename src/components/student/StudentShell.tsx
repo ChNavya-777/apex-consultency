@@ -433,9 +433,12 @@ export type FieldGroup = { heading: string; fields: string[] };
 export function ProfileCard({
   groups,
   emptyText,
+  values,
 }: {
   groups: FieldGroup[];
-  emptyText: string;
+  emptyText?: string;
+  /** Field label → value from the source. Missing/blank values render as "Not available". */
+  values?: Record<string, string | null | undefined>;
 }) {
   return (
     <div className="space-y-6">
@@ -445,22 +448,33 @@ export function ProfileCard({
             {group.heading}
           </h3>
           <dl className="rounded-xl border border-border bg-surface/50 px-4">
-            {group.fields.map((field) => (
-              <div
-                key={field}
-                className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-3 last:border-0"
-              >
-                <dt className="text-sm text-muted-foreground">{field}</dt>
-                <dd className="text-sm text-muted-foreground/60">Not available yet</dd>
-              </div>
-            ))}
+            {group.fields.map((field) => {
+              const value = values?.[field]?.trim() || "";
+              return (
+                <div
+                  key={field}
+                  className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-3 last:border-0"
+                >
+                  <dt className="text-sm text-muted-foreground">{field}</dt>
+                  <dd
+                    className={cn(
+                      "max-w-[60%] break-words text-right text-sm",
+                      value ? "font-medium text-foreground" : "text-muted-foreground/60",
+                    )}
+                  >
+                    {value || (values ? "Not available" : "Not available yet")}
+                  </dd>
+                </div>
+              );
+            })}
           </dl>
         </div>
       ))}
-      <p className="text-sm text-muted-foreground">{emptyText}</p>
+      {emptyText && <p className="text-sm text-muted-foreground">{emptyText}</p>}
     </div>
   );
 }
+
 
 export type SessionSummary = {
   id: string;
