@@ -87,7 +87,7 @@ function StudentProfilePage() {
             title={isLoading ? "Loading your profile…" : "Profile unavailable"}
             text={
               isLoading
-                ? undefined
+                ? "Fetching your consultation details."
                 : (data.studentSourceError ??
                   "We couldn't find a consultation enquiry for this email address yet. Your details will appear here once you submit the consultation form.")
             }
