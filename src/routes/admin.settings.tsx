@@ -44,12 +44,14 @@ function AdminSettingsPage() {
           <h2 className="mb-2 font-display text-base font-semibold text-foreground">
             Data connections
           </h2>
-          <FieldRow label="Student enquiries" value="Google Sheets — not connected" />
-          <FieldRow label="Sessions" value="DayOtter → Google Sheets — not connected" />
+          <FieldRow label="Student enquiries" value="Student Google Sheet — read-only (sheet ID pending)" />
+          <FieldRow label="Sessions" value="Calendly → Booking Google Sheet — connected (read-only)" />
           <FieldRow label="Authentication" value="Prototype — provider not connected" />
           <p className="mt-4 text-sm text-muted-foreground">
-            These integrations will be configured in the next phase.
+            Booking data is read live from the Booking Sheet. Student profile details require the
+            Student Sheet ID.
           </p>
+
         </PortalCard>
       </div>
     </PortalLayout>

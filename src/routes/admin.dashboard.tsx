@@ -3,7 +3,8 @@ import { ArrowRight } from "lucide-react";
 import { PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { adminNav } from "@/components/portal/nav";
 import { MeetingButton, SessionCard, SessionEmptyState } from "@/components/sessions/SessionUI";
-import { getAllSessions, isSameDay } from "@/lib/sessions";
+import { isSessionToday, isSessionUpcoming } from "@/lib/sessions";
+import { useAdminPortalData } from "@/lib/use-portal-data";
 
 
 const title = "Super Admin Dashboard — APEX Global Education Portal";
@@ -36,10 +37,11 @@ const soonCards = [
 
 function AdminDashboardPage() {
   const session = useRequireRole("super_admin");
+  const { data, isLoading } = useAdminPortalData();
   if (!session) return null;
 
-  /** Empty until the booking source is connected — no counts or records are invented. */
-  const todaySessions = getAllSessions().filter((s) => isSameDay(s.startTime));
+  /** All counsellors' sessions — Super Admin scope. */
+  const todaySessions = data.sessions.filter((s) => isSessionToday(s) && isSessionUpcoming(s));
 
   return (
     <PortalLayout session={session} nav={adminNav}>
@@ -63,8 +65,8 @@ function AdminDashboardPage() {
 
         {todaySessions.length === 0 ? (
           <SessionEmptyState
-            title="No sessions scheduled for today."
-            text="Scheduled consultations will appear here once your booking system is connected."
+            title={isLoading ? "Loading sessions…" : "No sessions scheduled for today."}
+            text="Consultations scheduled for today will appear here."
           />
         ) : (
           <div className="space-y-3">

@@ -3,7 +3,8 @@ import { ArrowLeft } from "lucide-react";
 import { PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { counsellorNav } from "@/components/portal/nav";
 import { SessionDetail, SessionEmptyState } from "@/components/sessions/SessionUI";
-import { findSession, getCounsellorSessions } from "@/lib/sessions";
+import { findSession } from "@/lib/sessions";
+import { useCounsellorPortalData } from "@/lib/use-portal-data";
 
 const title = "Consultation Details — APEX Global Education Portal";
 const description = "Details of a consultation assigned to you.";
@@ -24,10 +25,11 @@ export const Route = createFileRoute("/counsellor/sessions/$id")({
 function CounsellorSessionDetailPage() {
   const session = useRequireRole("counsellor");
   const { id } = Route.useParams();
+  const { data, isLoading } = useCounsellorPortalData(session?.email);
   if (!session) return null;
 
-  /** Looked up only within this counsellor's own sessions. */
-  const record = findSession(getCounsellorSessions(session.name), id);
+  /** Looked up only within this counsellor's own (server-filtered) sessions. */
+  const record = findSession(data.sessions, id);
 
   return (
     <PortalLayout session={session} nav={counsellorNav}>
@@ -55,8 +57,8 @@ function CounsellorSessionDetailPage() {
         />
       ) : (
         <SessionEmptyState
-          title="Consultation not found"
-          text="This session isn't available to you. Your assigned consultations will appear here once the booking system is connected."
+          title={isLoading ? "Loading consultation…" : "Consultation not found"}
+          text="This session isn't available to you."
           action={
             <Link
               to="/counsellor/sessions"
