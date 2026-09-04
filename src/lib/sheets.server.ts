@@ -10,15 +10,30 @@ const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_sheets/v4";
 export type SheetRow = Record<string, string>;
 
 /**
+ * Short-lived read cache.
+ *
+ * Sheets is quota-limited (read requests per minute); portal pages read the same two ranges on
+ * every visit, so identical reads inside this window reuse the last successful response instead
+ * of re-hitting the API. Failures are never cached.
+ */
+const CACHE_TTL_MS = 30_000;
+const cache = new Map<string, { rows: SheetRow[]; at: number }>();
+
+/**
  * Read a range and return one object per data row, keyed by the sheet's own header row.
  * Ragged rows are padded so every key exists (missing cells become "").
  */
 export async function readSheetRows(spreadsheetId: string, range: string): Promise<SheetRow[]> {
+  const cacheKey = `${spreadsheetId}!${range}`;
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.rows;
+
   const lovableKey = process.env["LOVABLE_API_KEY"];
   const connectionKey = process.env["GOOGLE_SHEETS_API_KEY"];
   if (!lovableKey || !connectionKey) {
     throw new Error("Google Sheets connection is not configured on the server.");
   }
+
 
   const response = await fetch(`${GATEWAY_URL}/spreadsheets/${spreadsheetId}/values/${range}`, {
     headers: {
@@ -40,7 +55,7 @@ export async function readSheetRows(spreadsheetId: string, range: string): Promi
   if (!header) return [];
 
   const keys = header.map((h) => String(h ?? "").trim());
-  return rest
+  const rows = rest
     .filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""))
     .map((row) => {
       const obj: SheetRow = {};
@@ -49,4 +64,7 @@ export async function readSheetRows(spreadsheetId: string, range: string): Promi
       });
       return obj;
     });
+
+  cache.set(cacheKey, { rows, at: Date.now() });
+  return rows;
 }
