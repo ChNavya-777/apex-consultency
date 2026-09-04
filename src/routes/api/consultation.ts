@@ -93,7 +93,9 @@ export const Route = createFileRoute("/api/consultation")({
         };
 
         try {
-          const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
+          const endpoint =
+            process.env["CONSULTATION_APPS_SCRIPT_URL"]?.trim() || APPS_SCRIPT_WEB_APP_URL;
+          const response = await fetch(endpoint, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -103,7 +105,11 @@ export const Route = createFileRoute("/api/consultation")({
             },
             body: JSON.stringify(payload),
             redirect: "follow",
+            // Without this the request can hang until the platform gateway
+            // times out, which surfaces to the student as a blank 502 page.
+            signal: AbortSignal.timeout(15_000),
           });
+
 
           if (!response.ok) {
             console.error(`Apps Script web app failed (${response.status})`);
