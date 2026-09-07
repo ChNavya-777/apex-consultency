@@ -341,11 +341,15 @@ export const getStudentPortalData = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data }): Promise<PortalData> => {
     if (!data.studentEmail) return { sessions: [], students: [], studentSourceError: null };
-    const all = await loadSessions();
+    const { sessions: all, error: sessionError } = await loadSessions();
     const mine = all.filter((s) => s.studentEmail === data.studentEmail);
     const { profiles, error } = await loadStudentProfiles();
     const profile =
       profiles.get(data.studentEmail) ??
       placeholderProfile(data.studentEmail, mine[0]?.studentName ?? "");
-    return { sessions: mine, students: [profile], studentSourceError: error };
+    return {
+      sessions: mine,
+      students: [profile],
+      studentSourceError: sessionError ?? error,
+    };
   });
