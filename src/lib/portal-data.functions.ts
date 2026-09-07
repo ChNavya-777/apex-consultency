@@ -232,11 +232,24 @@ function placeholderProfile(email: string, name: string): StudentProfile {
 /* Composition                                                        */
 /* ------------------------------------------------------------------ */
 
-async function loadSessions(): Promise<ConsultationSession[]> {
-  const { readSheetRows } = await import("@/lib/sheets.server");
-  const rows = await readSheetRows(BOOKING_SHEET_ID, BOOKING_RANGE);
-  return rows.map(toSession).filter((s): s is ConsultationSession => s !== null);
+async function loadSessions(): Promise<{ sessions: ConsultationSession[]; error: string | null }> {
+  try {
+    const { readSheetRows } = await import("@/lib/sheets.server");
+    const rows = await readSheetRows(BOOKING_SHEET_ID, BOOKING_RANGE);
+    return {
+      sessions: rows.map(toSession).filter((s): s is ConsultationSession => s !== null),
+      error: null,
+    };
+  } catch (error) {
+    // A failed booking read must not blank the portal.
+    console.error("Booking Sheet read failed:", error);
+    return {
+      sessions: [],
+      error: "Session details are temporarily unavailable. Please try again in a moment.",
+    };
+  }
 }
+
 
 async function loadStudentProfiles(): Promise<{
   profiles: Map<string, StudentProfile>;
