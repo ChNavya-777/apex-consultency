@@ -33,7 +33,8 @@ export const Route = createFileRoute("/student/dashboard")({
 
 function StudentDashboardPage() {
   const session = useRequireStudent();
-  const { data, isLoading } = useStudentPortalData(session?.email);
+  const { data } = useStudentPortalData(session?.email);
+
 
   /** Earliest valid upcoming session for this student (same rules as My Sessions). */
   const nextSession = useMemo(() => {
