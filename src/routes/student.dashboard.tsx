@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CalendarDays, Compass, UserRound } from "lucide-react";
+import { useMemo } from "react";
 import {
   JourneyProgress,
   StudentCard,
@@ -10,7 +11,9 @@ import {
 } from "@/components/student/StudentShell";
 import { studentNav } from "@/components/student/nav";
 import { MeetingButton, SessionEmptyState, SessionStatusBadge } from "@/components/sessions/SessionUI";
-import { formatSessionDate, formatTimeRange, getStudentSessions } from "@/lib/sessions";
+import { isSessionUpcoming, sessionDateLabel, sessionTimeLabel, sessionSlot } from "@/lib/sessions";
+import { useStudentPortalData } from "@/lib/use-portal-data";
+
 
 const title = "Dashboard — APEX Student Portal";
 const description = "Track your study abroad journey, consultations and application progress in one place.";
@@ -30,12 +33,29 @@ export const Route = createFileRoute("/student/dashboard")({
 
 function StudentDashboardPage() {
   const session = useRequireStudent();
+  const { data } = useStudentPortalData(session?.email);
+
+
+  /** Earliest valid upcoming session for this student (same rules as My Sessions). */
+  const nextSession = useMemo(() => {
+    const upcoming = data.sessions
+      .filter((s) => isSessionUpcoming(s))
+      .sort((a, b) => {
+        const startA = sessionSlot(a).start?.getTime();
+        const startB = sessionSlot(b).start?.getTime();
+        if (startA == null && startB == null) return 0;
+        if (startA == null) return 1;
+        if (startB == null) return -1;
+        return startA - startB;
+      });
+    return upcoming[0];
+  }, [data.sessions]);
+
   if (!session) return null;
 
-  /** Scoped to this student only. Empty until the booking source is connected. */
-  const nextSession = getStudentSessions(session.email).find((s) => s.status !== "completed");
-
   return (
+
+
     <StudentLayout session={session} nav={studentNav}>
       <StudentHeading
         title="Welcome to your APEX Student Portal"
@@ -70,9 +90,9 @@ function StudentDashboardPage() {
                     {nextSession.counsellorName}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {formatSessionDate(nextSession.startTime)} ·{" "}
-                    {formatTimeRange(nextSession.startTime, nextSession.endTime)}
+                    {sessionDateLabel(nextSession)} · {sessionTimeLabel(nextSession)}
                   </p>
+
                 </div>
                 <SessionStatusBadge status={nextSession.status} />
               </div>
