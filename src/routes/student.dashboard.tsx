@@ -89,9 +89,9 @@ function StudentDashboardPage() {
                     {nextSession.counsellorName}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {formatSessionDate(nextSession.startTime)} ·{" "}
-                    {formatTimeRange(nextSession.startTime, nextSession.endTime)}
+                    {sessionDateLabel(nextSession)} · {sessionTimeLabel(nextSession)}
                   </p>
+
                 </div>
                 <SessionStatusBadge status={nextSession.status} />
               </div>
