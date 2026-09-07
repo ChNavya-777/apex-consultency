@@ -35,14 +35,11 @@ function StudentDashboardPage() {
   const session = useRequireStudent();
   const { data, isLoading } = useStudentPortalData(session?.email);
 
-  if (!session) return null;
-
   /** Earliest valid upcoming session for this student (same rules as My Sessions). */
   const nextSession = useMemo(() => {
     const upcoming = data.sessions
       .filter((s) => isSessionUpcoming(s))
       .sort((a, b) => {
-
         const startA = sessionSlot(a).start?.getTime();
         const startB = sessionSlot(b).start?.getTime();
         if (startA == null && startB == null) return 0;
@@ -53,7 +50,10 @@ function StudentDashboardPage() {
     return upcoming[0];
   }, [data.sessions]);
 
+  if (!session) return null;
+
   return (
+
 
     <StudentLayout session={session} nav={studentNav}>
       <StudentHeading
