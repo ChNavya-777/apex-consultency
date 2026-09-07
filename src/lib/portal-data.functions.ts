@@ -12,7 +12,9 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { findRosterCounsellor, normalizeEmail } from "@/lib/counsellor-roster";
+import { sessionSlot } from "@/lib/sessions";
 import type { ConsultationSession, SessionStatus } from "@/lib/sessions";
+
 import type { PortalData, StudentProfile } from "@/lib/portal-data";
 
 /** Booking/Calendly Sheet ("mentor details"). Overridable without a code change. */
@@ -232,15 +234,43 @@ function placeholderProfile(email: string, name: string): StudentProfile {
 /* Composition                                                        */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Sorts sessions by their actual scheduled meeting start (latest first), using the shared slot
+ * logic. Ties break on the slot end; rows without a usable slot sink to the bottom.
+ */
+function sortByMeetingTime(sessions: ConsultationSession[]): ConsultationSession[] {
+  const key = (s: ConsultationSession) => {
+    const { start, end } = sessionSlot(s);
+    const startMs = start?.getTime();
+    const endMs = end?.getTime();
+    return {
+      start: typeof startMs === "number" && Number.isFinite(startMs) ? startMs : null,
+      end: typeof endMs === "number" && Number.isFinite(endMs) ? endMs : null,
+    };
+  };
+  return [...sessions].sort((a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    if (ka.start === null && kb.start === null) return 0;
+    if (ka.start === null) return 1;
+    if (kb.start === null) return -1;
+    if (ka.start !== kb.start) return kb.start - ka.start;
+    return (kb.end ?? kb.start) - (ka.end ?? ka.start);
+  });
+}
+
 async function loadSessions(): Promise<{ sessions: ConsultationSession[]; error: string | null }> {
   try {
     const { readSheetRows } = await import("@/lib/sheets.server");
     const rows = await readSheetRows(BOOKING_SHEET_ID, BOOKING_RANGE);
     return {
-      sessions: rows.map(toSession).filter((s): s is ConsultationSession => s !== null),
+      sessions: sortByMeetingTime(
+        rows.map(toSession).filter((s): s is ConsultationSession => s !== null),
+      ),
       error: null,
     };
   } catch (error) {
+
     // A failed booking read must not blank the portal.
     console.error("Booking Sheet read failed:", error);
     return {
