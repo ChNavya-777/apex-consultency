@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { GraduationCap, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { cn } from "@/lib/utils";
 import { roleHome, roleLogin, signOut, useSession, type PortalRole, type PortalSession } from "@/lib/portal-auth";
 
@@ -274,8 +275,7 @@ export function PortalLogin({
               <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
                 Password
               </span>
-              <input
-                type="password"
+              <PasswordInput
                 required
                 autoComplete="current-password"
                 value={password}
