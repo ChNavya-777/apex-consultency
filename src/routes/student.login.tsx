@@ -119,17 +119,16 @@ function StudentLoginPage() {
                     className={inputClass}
                   />
                 </label>
-                <div className="block">
+                <label className="block">
                   <span className={labelClass}>Password</span>
                   <PasswordInput
-                    id="signin-password"
                     required
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className={cn(inputClass, "pr-10")}
                   />
-                </div>
+                </label>
 
                 {error && (
                   <p role="alert" className="text-sm font-medium text-destructive">

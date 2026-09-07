@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function PasswordInput({
@@ -6,9 +7,6 @@ export function PasswordInput({
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement>) {
   const [show, setShow] = useState(false);
-  useEffect(() => {
-    console.log("PasswordInput mounted");
-  }, []);
 
   return (
     <div className="relative">
@@ -19,17 +17,13 @@ export function PasswordInput({
       />
       <button
         type="button"
-        onClick={() => {
-          console.log("onClick fired, current show:", show);
-          setShow((v) => !v);
-        }}
+        onClick={() => setShow((v) => !v)}
         aria-label={show ? "Hide password" : "Show password"}
         aria-pressed={show}
-        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {show ? "Hide" : "Show"}
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>
-      <span className="sr-only">show={show ? "true" : "false"}</span>
     </div>
   );
 }
