@@ -12,7 +12,9 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { findRosterCounsellor, normalizeEmail } from "@/lib/counsellor-roster";
+import { sessionSlot } from "@/lib/sessions";
 import type { ConsultationSession, SessionStatus } from "@/lib/sessions";
+
 import type { PortalData, StudentProfile } from "@/lib/portal-data";
 
 /** Booking/Calendly Sheet ("mentor details"). Overridable without a code change. */
