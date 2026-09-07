@@ -310,7 +310,7 @@ export const getCounsellorPortalData = createServerFn({ method: "GET" })
 /** Every session and student — Super Admin scope. */
 export const getAdminPortalData = createServerFn({ method: "GET" }).handler(
   async (): Promise<PortalData> => {
-    const sessions = await loadSessions();
+    const { sessions, error: sessionError } = await loadSessions();
     const { profiles, error } = await loadStudentProfiles();
 
     const { counsellorRoster } = await import("@/lib/counsellor-roster");
@@ -326,7 +326,11 @@ export const getAdminPortalData = createServerFn({ method: "GET" }).handler(
       );
     }
 
-    return { sessions, students: compose(sessions, profiles), studentSourceError: error };
+    return {
+      sessions,
+      students: compose(sessions, profiles),
+      studentSourceError: sessionError ?? error,
+    };
   },
 );
 
