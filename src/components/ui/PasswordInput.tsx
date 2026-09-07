@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export function PasswordInput({
@@ -6,6 +6,9 @@ export function PasswordInput({
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement>) {
   const [show, setShow] = useState(false);
+  useEffect(() => {
+    console.log("PasswordInput mounted");
+  }, []);
 
   return (
     <div className="relative">
