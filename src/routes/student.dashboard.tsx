@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CalendarDays, Compass, UserRound } from "lucide-react";
+import { useMemo } from "react";
 import {
   JourneyProgress,
   StudentCard,
@@ -10,7 +11,9 @@ import {
 } from "@/components/student/StudentShell";
 import { studentNav } from "@/components/student/nav";
 import { MeetingButton, SessionEmptyState, SessionStatusBadge } from "@/components/sessions/SessionUI";
-import { formatSessionDate, formatTimeRange, getStudentSessions } from "@/lib/sessions";
+import { isSessionUpcoming, sessionDateLabel, sessionTimeLabel, sessionSlot } from "@/lib/sessions";
+import { useStudentPortalData } from "@/lib/use-portal-data";
+
 
 const title = "Dashboard — APEX Student Portal";
 const description = "Track your study abroad journey, consultations and application progress in one place.";
