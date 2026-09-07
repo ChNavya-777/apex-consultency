@@ -3,8 +3,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { signInStudent, startStudentSession } from "@/lib/portal-auth";
 import { createStudentAccount, studentLogin } from "@/lib/student-auth.functions";
+import { cn } from "@/lib/utils";
 import { site } from "@/data/site";
 
 const title = "Student Login — APEX Global Education Portal";
@@ -117,17 +119,17 @@ function StudentLoginPage() {
                     className={inputClass}
                   />
                 </label>
-                <label className="block">
+                <div className="block">
                   <span className={labelClass}>Password</span>
-                  <input
-                    type="password"
+                  <PasswordInput
+                    id="signin-password"
                     required
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={inputClass}
+                    className={cn(inputClass, "pr-10")}
                   />
-                </label>
+                </div>
 
                 {error && (
                   <p role="alert" className="text-sm font-medium text-destructive">
@@ -248,24 +250,22 @@ function StudentLoginPage() {
               </label>
               <label className="block">
                 <span className={labelClass}>Password</span>
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className={inputClass}
+                  className={cn(inputClass, "pr-10")}
                 />
               </label>
               <label className="block">
                 <span className={labelClass}>Confirm Password</span>
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={inputClass}
+                  className={cn(inputClass, "pr-10")}
                 />
               </label>
 
