@@ -235,8 +235,8 @@ function placeholderProfile(email: string, name: string): StudentProfile {
 /* ------------------------------------------------------------------ */
 
 /**
- * Sorts sessions by their actual scheduled meeting start (latest first), using the shared slot
- * logic. Ties break on the slot end; rows without a usable slot sink to the bottom.
+ * Sorts sessions by their actual scheduled meeting start (earliest first), using the shared
+ * slot logic. Ties break on the slot end; rows without a usable slot sink to the bottom.
  */
 function sortByMeetingTime(sessions: ConsultationSession[]): ConsultationSession[] {
   const key = (s: ConsultationSession) => {
@@ -254,8 +254,8 @@ function sortByMeetingTime(sessions: ConsultationSession[]): ConsultationSession
     if (ka.start === null && kb.start === null) return 0;
     if (ka.start === null) return 1;
     if (kb.start === null) return -1;
-    if (ka.start !== kb.start) return kb.start - ka.start;
-    return (kb.end ?? kb.start) - (ka.end ?? ka.start);
+    if (ka.start !== kb.start) return ka.start - kb.start;
+    return (ka.end ?? ka.start) - (kb.end ?? kb.start);
   });
 }
 
