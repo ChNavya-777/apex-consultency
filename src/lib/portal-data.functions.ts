@@ -291,7 +291,7 @@ export const getCounsellorPortalData = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<PortalData> => {
     if (!data.counsellorEmail) return { sessions: [], students: [], studentSourceError: null };
 
-    const all = await loadSessions();
+    const { sessions: all, error: sessionError } = await loadSessions();
     const mine = all.filter((s) => s.counsellorEmail === data.counsellorEmail);
 
     const unmatched = all.filter((s) => !s.counsellorEmail);
@@ -300,7 +300,11 @@ export const getCounsellorPortalData = createServerFn({ method: "GET" })
     }
 
     const { profiles, error } = await loadStudentProfiles();
-    return { sessions: mine, students: compose(mine, profiles), studentSourceError: error };
+    return {
+      sessions: mine,
+      students: compose(mine, profiles),
+      studentSourceError: sessionError ?? error,
+    };
   });
 
 /** Every session and student — Super Admin scope. */
