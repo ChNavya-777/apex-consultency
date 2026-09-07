@@ -40,8 +40,9 @@ function StudentDashboardPage() {
   /** Earliest valid upcoming session for this student (same rules as My Sessions). */
   const nextSession = useMemo(() => {
     const upcoming = data.sessions
-      .filter(isSessionUpcoming)
+      .filter((s) => isSessionUpcoming(s))
       .sort((a, b) => {
+
         const startA = sessionSlot(a).start?.getTime();
         const startB = sessionSlot(b).start?.getTime();
         if (startA == null && startB == null) return 0;
