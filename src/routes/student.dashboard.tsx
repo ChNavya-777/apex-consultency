@@ -33,12 +33,27 @@ export const Route = createFileRoute("/student/dashboard")({
 
 function StudentDashboardPage() {
   const session = useRequireStudent();
+  const { data, isLoading } = useStudentPortalData(session?.email);
+
   if (!session) return null;
 
-  /** Scoped to this student only. Empty until the booking source is connected. */
-  const nextSession = getStudentSessions(session.email).find((s) => s.status !== "completed");
+  /** Earliest valid upcoming session for this student (same rules as My Sessions). */
+  const nextSession = useMemo(() => {
+    const upcoming = data.sessions
+      .filter(isSessionUpcoming)
+      .sort((a, b) => {
+        const startA = sessionSlot(a).start?.getTime();
+        const startB = sessionSlot(b).start?.getTime();
+        if (startA == null && startB == null) return 0;
+        if (startA == null) return 1;
+        if (startB == null) return -1;
+        return startA - startB;
+      });
+    return upcoming[0];
+  }, [data.sessions]);
 
   return (
+
     <StudentLayout session={session} nav={studentNav}>
       <StudentHeading
         title="Welcome to your APEX Student Portal"
