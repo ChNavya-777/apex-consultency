@@ -232,11 +232,24 @@ function placeholderProfile(email: string, name: string): StudentProfile {
 /* Composition                                                        */
 /* ------------------------------------------------------------------ */
 
-async function loadSessions(): Promise<ConsultationSession[]> {
-  const { readSheetRows } = await import("@/lib/sheets.server");
-  const rows = await readSheetRows(BOOKING_SHEET_ID, BOOKING_RANGE);
-  return rows.map(toSession).filter((s): s is ConsultationSession => s !== null);
+async function loadSessions(): Promise<{ sessions: ConsultationSession[]; error: string | null }> {
+  try {
+    const { readSheetRows } = await import("@/lib/sheets.server");
+    const rows = await readSheetRows(BOOKING_SHEET_ID, BOOKING_RANGE);
+    return {
+      sessions: rows.map(toSession).filter((s): s is ConsultationSession => s !== null),
+      error: null,
+    };
+  } catch (error) {
+    // A failed booking read must not blank the portal.
+    console.error("Booking Sheet read failed:", error);
+    return {
+      sessions: [],
+      error: "Session details are temporarily unavailable. Please try again in a moment.",
+    };
+  }
 }
+
 
 async function loadStudentProfiles(): Promise<{
   profiles: Map<string, StudentProfile>;
@@ -278,7 +291,7 @@ export const getCounsellorPortalData = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<PortalData> => {
     if (!data.counsellorEmail) return { sessions: [], students: [], studentSourceError: null };
 
-    const all = await loadSessions();
+    const { sessions: all, error: sessionError } = await loadSessions();
     const mine = all.filter((s) => s.counsellorEmail === data.counsellorEmail);
 
     const unmatched = all.filter((s) => !s.counsellorEmail);
@@ -287,13 +300,17 @@ export const getCounsellorPortalData = createServerFn({ method: "GET" })
     }
 
     const { profiles, error } = await loadStudentProfiles();
-    return { sessions: mine, students: compose(mine, profiles), studentSourceError: error };
+    return {
+      sessions: mine,
+      students: compose(mine, profiles),
+      studentSourceError: sessionError ?? error,
+    };
   });
 
 /** Every session and student — Super Admin scope. */
 export const getAdminPortalData = createServerFn({ method: "GET" }).handler(
   async (): Promise<PortalData> => {
-    const sessions = await loadSessions();
+    const { sessions, error: sessionError } = await loadSessions();
     const { profiles, error } = await loadStudentProfiles();
 
     const { counsellorRoster } = await import("@/lib/counsellor-roster");
@@ -309,7 +326,11 @@ export const getAdminPortalData = createServerFn({ method: "GET" }).handler(
       );
     }
 
-    return { sessions, students: compose(sessions, profiles), studentSourceError: error };
+    return {
+      sessions,
+      students: compose(sessions, profiles),
+      studentSourceError: sessionError ?? error,
+    };
   },
 );
 
@@ -320,11 +341,15 @@ export const getStudentPortalData = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data }): Promise<PortalData> => {
     if (!data.studentEmail) return { sessions: [], students: [], studentSourceError: null };
-    const all = await loadSessions();
+    const { sessions: all, error: sessionError } = await loadSessions();
     const mine = all.filter((s) => s.studentEmail === data.studentEmail);
     const { profiles, error } = await loadStudentProfiles();
     const profile =
       profiles.get(data.studentEmail) ??
       placeholderProfile(data.studentEmail, mine[0]?.studentName ?? "");
-    return { sessions: mine, students: [profile], studentSourceError: error };
+    return {
+      sessions: mine,
+      students: [profile],
+      studentSourceError: sessionError ?? error,
+    };
   });
