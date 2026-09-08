@@ -14,7 +14,295 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      counsellors: {
+        Row: {
+          auth_user_id: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          status: string | null
+        }
+        Insert: {
+          auth_user_id?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          status?: string | null
+        }
+        Update: {
+          auth_user_id?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      demo_call_requests: {
+        Row: {
+          email: string
+          full_name: string
+          id: string
+          phone: string
+          submitted_at: string
+          webhook_status: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          email: string
+          full_name: string
+          id?: string
+          phone: string
+          submitted_at?: string
+          webhook_status?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          email?: string
+          full_name?: string
+          id?: string
+          phone?: string
+          submitted_at?: string
+          webhook_status?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      session_questions: {
+        Row: {
+          answer: string | null
+          created_at: string
+          id: string
+          position: number | null
+          question: string | null
+          session_id: string
+        }
+        Insert: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          position?: number | null
+          question?: string | null
+          session_id: string
+        }
+        Update: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          position?: number | null
+          question?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_questions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          booking_event: string | null
+          booking_status: string | null
+          booking_uid: string
+          cancel_url: string | null
+          counsellor_email: string | null
+          counsellor_id: string | null
+          counsellor_name: string | null
+          counsellor_user_uri: string | null
+          created_at: string
+          end_time: string | null
+          event_uri: string | null
+          id: string
+          invitee_status: string | null
+          reschedule_url: string | null
+          rescheduled: boolean | null
+          session_name: string | null
+          start_time: string | null
+          status: string | null
+          student_email: string
+          student_id: string | null
+          student_name: string | null
+          timezone: string | null
+        }
+        Insert: {
+          booking_event?: string | null
+          booking_status?: string | null
+          booking_uid: string
+          cancel_url?: string | null
+          counsellor_email?: string | null
+          counsellor_id?: string | null
+          counsellor_name?: string | null
+          counsellor_user_uri?: string | null
+          created_at?: string
+          end_time?: string | null
+          event_uri?: string | null
+          id?: string
+          invitee_status?: string | null
+          reschedule_url?: string | null
+          rescheduled?: boolean | null
+          session_name?: string | null
+          start_time?: string | null
+          status?: string | null
+          student_email: string
+          student_id?: string | null
+          student_name?: string | null
+          timezone?: string | null
+        }
+        Update: {
+          booking_event?: string | null
+          booking_status?: string | null
+          booking_uid?: string
+          cancel_url?: string | null
+          counsellor_email?: string | null
+          counsellor_id?: string | null
+          counsellor_name?: string | null
+          counsellor_user_uri?: string | null
+          created_at?: string
+          end_time?: string | null
+          event_uri?: string | null
+          id?: string
+          invitee_status?: string | null
+          reschedule_url?: string | null
+          rescheduled?: boolean | null
+          session_name?: string | null
+          start_time?: string | null
+          status?: string | null
+          student_email?: string
+          student_id?: string | null
+          student_name?: string | null
+          timezone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_counsellor_id_fkey"
+            columns: ["counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_profiles: {
+        Row: {
+          additional_info: string | null
+          branch: string | null
+          budget: string | null
+          cgpa: string | null
+          created_at: string
+          current_degree: string | null
+          email: string
+          english_test: string | null
+          graduation_year: string | null
+          id: string
+          phone: string | null
+          preferred_country: string | null
+          preferred_course: string | null
+          preferred_intake: string | null
+          student_id: string | null
+          submitted_at: string | null
+        }
+        Insert: {
+          additional_info?: string | null
+          branch?: string | null
+          budget?: string | null
+          cgpa?: string | null
+          created_at?: string
+          current_degree?: string | null
+          email: string
+          english_test?: string | null
+          graduation_year?: string | null
+          id?: string
+          phone?: string | null
+          preferred_country?: string | null
+          preferred_course?: string | null
+          preferred_intake?: string | null
+          student_id?: string | null
+          submitted_at?: string | null
+        }
+        Update: {
+          additional_info?: string | null
+          branch?: string | null
+          budget?: string | null
+          cgpa?: string | null
+          created_at?: string
+          current_degree?: string | null
+          email?: string
+          english_test?: string | null
+          graduation_year?: string | null
+          id?: string
+          phone?: string | null
+          preferred_country?: string | null
+          preferred_course?: string | null
+          preferred_intake?: string | null
+          student_id?: string | null
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_profiles_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          account_status: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+        }
+        Insert: {
+          account_status?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+        }
+        Update: {
+          account_status?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +311,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_role: "super_admin" | "counsellor" | "student"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +438,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["super_admin", "counsellor", "student"],
+    },
   },
 } as const
