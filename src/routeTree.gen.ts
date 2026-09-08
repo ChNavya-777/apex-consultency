@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as ConsultationRouteImport } from './routes/consultation'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as DemoCallRouteImport } from './routes/demo-call'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ServicesRouteImport } from './routes/services'
@@ -68,6 +69,11 @@ const ConsultationRoute = ConsultationRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoCallRoute = DemoCallRouteImport.update({
+  id: '/demo-call',
+  path: '/demo-call',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FaqRoute = FaqRouteImport.update({
@@ -256,6 +262,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/consultation': typeof ConsultationRoute
   '/contact': typeof ContactRoute
+  '/demo-call': typeof DemoCallRoute
   '/faq': typeof FaqRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/services': typeof ServicesRoute
@@ -298,6 +305,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/consultation': typeof ConsultationRoute
   '/contact': typeof ContactRoute
+  '/demo-call': typeof DemoCallRoute
   '/faq': typeof FaqRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/services': typeof ServicesRoute
@@ -341,6 +349,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/consultation': typeof ConsultationRoute
   '/contact': typeof ContactRoute
+  '/demo-call': typeof DemoCallRoute
   '/faq': typeof FaqRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/services': typeof ServicesRoute
@@ -385,6 +394,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/consultation'
     | '/contact'
+    | '/demo-call'
     | '/faq'
     | '/privacy-policy'
     | '/services'
@@ -427,6 +437,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/consultation'
     | '/contact'
+    | '/demo-call'
     | '/faq'
     | '/privacy-policy'
     | '/services'
@@ -469,6 +480,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/consultation'
     | '/contact'
+    | '/demo-call'
     | '/faq'
     | '/privacy-policy'
     | '/services'
@@ -512,6 +524,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   ConsultationRoute: typeof ConsultationRoute
   ContactRoute: typeof ContactRoute
+  DemoCallRoute: typeof DemoCallRoute
   FaqRoute: typeof FaqRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ServicesRoute: typeof ServicesRoute
@@ -578,6 +591,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo-call': {
+      id: '/demo-call'
+      path: '/demo-call'
+      fullPath: '/demo-call'
+      preLoaderRoute: typeof DemoCallRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/faq': {
@@ -840,6 +860,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   ConsultationRoute: ConsultationRoute,
   ContactRoute: ContactRoute,
+  DemoCallRoute: DemoCallRoute,
   FaqRoute: FaqRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ServicesRoute: ServicesRoute,
