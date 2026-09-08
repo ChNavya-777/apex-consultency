@@ -14,33 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      dayotter_booking_events: {
-        Row: {
-          created_at: string
-          emails: string[]
-          event: string
-          id: string
-          payload: Json
-          received_at: string
-        }
-        Insert: {
-          created_at?: string
-          emails?: string[]
-          event: string
-          id?: string
-          payload: Json
-          received_at?: string
-        }
-        Update: {
-          created_at?: string
-          emails?: string[]
-          event?: string
-          id?: string
-          payload?: Json
-          received_at?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
