@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { destinations } from "@/data/destinations";
 import { PROTOTYPE_NOTE } from "@/data/site";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/portal-auth";
+import { submitDemoCall } from "@/lib/demo-call.functions";
 
 
 const courseOptions = [
@@ -509,6 +511,119 @@ export function ConsultationForm() {
       <p className="mt-4 text-xs text-muted-foreground">
         Your details are submitted to our counselling team via a secure workflow.
       </p>
+    </form>
+  );
+}
+
+export function DemoCallForm() {
+  const submit = useServerFn(submitDemoCall);
+  const [errors, setErrors] = useState<Errors>({});
+  const [state, setState] = useState<"idle" | "loading" | "done">("idle");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  if (state === "done") {
+    return (
+      <SuccessPanel
+        title="Demo Call Request Received"
+        text="Your details have been submitted successfully. An APEX counsellor will reach out to you shortly to confirm a convenient time."
+      />
+    );
+  }
+
+  return (
+    <form
+      noValidate
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (state === "loading") return;
+
+        const data = new FormData(e.currentTarget);
+        const found = validate(data, ["fullName", "phone", "email"]);
+        setErrors(found);
+        if (Object.keys(found).length > 0) return;
+
+        setSubmitError(null);
+        setState("loading");
+
+        const result = await submit({
+          data: {
+            fullName: String(data.get("fullName") ?? "").trim(),
+            phone: String(data.get("phone") ?? "").trim(),
+            email: String(data.get("email") ?? "").trim(),
+            whatsapp: String(data.get("whatsapp") ?? "").trim(),
+          },
+        });
+
+        if (!result.success) {
+          setState("idle");
+          setSubmitError(result.message || "Submission failed. Please try again.");
+          return;
+        }
+
+        setState("done");
+      }}
+      className="rounded-lg border border-border bg-card p-6 shadow-soft md:p-8"
+    >
+      <h2 className="font-display text-xl font-bold">Book a Demo Call</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Fill in your details and our counselling team will get in touch to schedule a one-to-one demo call.
+      </p>
+
+      <div className="mt-6 grid gap-5 sm:grid-cols-2">
+        <Field id="fullName" label="Full name" required error={errors["fullName"]} className="sm:col-span-2">
+          <Input
+            id="fullName"
+            name="fullName"
+            autoComplete="name"
+            aria-invalid={!!errors["fullName"]}
+          />
+        </Field>
+        <Field id="phone" label="Phone number" required error={errors["phone"]}>
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            aria-invalid={!!errors["phone"]}
+          />
+        </Field>
+        <Field id="whatsapp" label="WhatsApp number (optional)" error={errors["whatsapp"]}>
+          <Input
+            id="whatsapp"
+            name="whatsapp"
+            type="tel"
+            autoComplete="tel"
+            aria-invalid={!!errors["whatsapp"]}
+          />
+        </Field>
+        <Field id="email" label="Email address" required error={errors["email"]} className="sm:col-span-2">
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            aria-invalid={!!errors["email"]}
+          />
+        </Field>
+      </div>
+
+      {submitError && (
+        <div className="mt-5 flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span>{submitError}</span>
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        variant="gold"
+        size="lg"
+        className="mt-7 w-full"
+        disabled={state === "loading"}
+      >
+        {state === "loading" && <Loader2 className="size-4 animate-spin" />}
+        {state === "loading" ? "Submitting…" : "Request Demo Call"}
+      </Button>
     </form>
   );
 }

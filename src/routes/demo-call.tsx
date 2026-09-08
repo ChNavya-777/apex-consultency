@@ -1,10 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { PageHero, Section, SectionHeader } from "@/components/site/shared";
+import { createFileRoute } from "@tanstack/react-router";
+import { DemoCallForm } from "@/components/site/forms";
+import { PageHero, Section } from "@/components/site/shared";
 
 const title = "Book a Demo Call — APEX Global Education";
 const description =
-  "Schedule a one-to-one demo call with an APEX counsellor. The booking form will be available here shortly.";
+  "Request a one-to-one demo call with an APEX counsellor. Share your contact details and our team will reach out to schedule a convenient time.";
 
 export const Route = createFileRoute("/demo-call")({
   head: () => ({
@@ -25,30 +25,14 @@ function DemoCallPage() {
     <>
       <PageHero
         crumbs={[{ label: "Demo Call" }]}
-        eyebrow="Coming soon"
+        eyebrow="One-to-one demo"
         title="Book a Demo Call"
-        text="A dedicated demo-call booking flow is on its way. For now, you can still request a free consultation or speak to us directly."
+        text="Tell us how to reach you. An APEX counsellor will call you back to confirm a time that works for you."
       />
 
       <Section>
-        <SectionHeader
-          eyebrow="Placeholder"
-          title="Demo Call Form — Under Construction"
-          text="This page will soon let you pick a convenient time and speak with an APEX counsellor about your study-abroad plans."
-          align="center"
-        />
-        <div className="mx-auto flex max-w-xl flex-col items-center gap-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            In the meantime, you can book a free consultation through your student account or contact us by phone or email.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button asChild variant="gold">
-              <Link to="/student/login">Login / Sign Up</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link to="/contact">Contact APEX</Link>
-            </Button>
-          </div>
+        <div className="mx-auto max-w-2xl">
+          <DemoCallForm />
         </div>
       </Section>
     </>
