@@ -71,8 +71,11 @@ export function Navbar() {
               <Phone className="size-4" aria-hidden="true" />
               {site.phone}
             </a>
+            <Button asChild variant="outline" className="hidden sm:inline-flex">
+              <Link to="/student/login">Login / Sign Up</Link>
+            </Button>
             <Button asChild variant="gold" className="hidden sm:inline-flex">
-              <Link to="/consultation">Book a Consultation</Link>
+              <Link to="/demo-call">Book a Demo Call</Link>
             </Button>
             <button
               type="button"
@@ -103,8 +106,11 @@ export function Navbar() {
               </Link>
             ))}
             <div className="mt-3 grid gap-2 pb-4">
+              <Button asChild variant="outline" size="lg">
+                <Link to="/student/login">Login / Sign Up</Link>
+              </Button>
               <Button asChild variant="gold" size="lg">
-                <Link to="/consultation">Book a Free Consultation</Link>
+                <Link to="/demo-call">Book a Demo Call</Link>
               </Button>
               <Button asChild variant="outline" size="lg">
                 <a href={`tel:${site.phone.replace(/\s/g, "")}`}>Call {site.phone}</a>
