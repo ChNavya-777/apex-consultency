@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { destinations } from "@/data/destinations";
 import { PROTOTYPE_NOTE } from "@/data/site";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/portal-auth";
+import { submitDemoCall } from "@/lib/demo-call.functions";
 
 
 const courseOptions = [
