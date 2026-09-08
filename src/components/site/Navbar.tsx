@@ -66,7 +66,7 @@ export function Navbar() {
           <div className="flex items-center gap-2">
             <a
               href={`tel:${site.phone.replace(/\s/g, "")}`}
-              className="hidden items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground lg:flex"
+              className="hidden items-center gap-2 whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors hover:text-foreground lg:flex"
             >
               <Phone className="size-4" aria-hidden="true" />
               {site.phone}
