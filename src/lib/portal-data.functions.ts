@@ -259,20 +259,19 @@ function sortByMeetingTime(sessions: ConsultationSession[]): ConsultationSession
   });
 }
 
+/*
+ * Phase 6B: portal reads come from Supabase (see `portal-supabase.server.ts`). The Google Sheets
+ * helpers above stay in place for the integration flows and are no longer used for portal reads.
+ */
+
 async function loadSessions(): Promise<{ sessions: ConsultationSession[]; error: string | null }> {
   try {
-    const { readSheetRows } = await import("@/lib/sheets.server");
-    const rows = await readSheetRows(BOOKING_SHEET_ID, BOOKING_RANGE);
-    return {
-      sessions: sortByMeetingTime(
-        rows.map(toSession).filter((s): s is ConsultationSession => s !== null),
-      ),
-      error: null,
-    };
+    const { readPortalSnapshot } = await import("@/lib/portal-supabase.server");
+    const { sessions } = await readPortalSnapshot();
+    return { sessions: sortByMeetingTime(sessions), error: null };
   } catch (error) {
-
-    // A failed booking read must not blank the portal.
-    console.error("Booking Sheet read failed:", error);
+    // A failed read must not blank the portal.
+    console.error("Supabase session read failed:", error);
     return {
       sessions: [],
       error: "Session details are temporarily unavailable. Please try again in a moment.",
@@ -280,26 +279,20 @@ async function loadSessions(): Promise<{ sessions: ConsultationSession[]; error:
   }
 }
 
-
 async function loadStudentProfiles(): Promise<{
   profiles: Map<string, StudentProfile>;
   error: string | null;
 }> {
-  if (!STUDENT_SHEET_ID) {
-    return {
-      profiles: new Map(),
-      error: "Student Sheet is not configured, so student profile details are unavailable.",
-    };
-  }
   try {
-    const { readSheetRows } = await import("@/lib/sheets.server");
-    const rows = await readSheetRows(STUDENT_SHEET_ID, STUDENT_RANGE);
-    return { profiles: latestProfilesByEmail(rows), error: null };
+    const { readPortalSnapshot } = await import("@/lib/portal-supabase.server");
+    const { profiles } = await readPortalSnapshot();
+    return { profiles, error: null };
   } catch (error) {
-    console.error("Student Sheet read failed:", error);
+    console.error("Supabase student profile read failed:", error);
     return { profiles: new Map(), error: "Student profile details are temporarily unavailable." };
   }
 }
+
 
 function compose(sessions: ConsultationSession[], profiles: Map<string, StudentProfile>) {
   const students: StudentProfile[] = [];
@@ -356,11 +349,23 @@ export const getAdminPortalData = createServerFn({ method: "GET" }).handler(
       );
     }
 
+    // Super Admin sees every student account, including those without a booking yet.
+    let students = compose(sessions, profiles);
+    try {
+      const { readPortalSnapshot } = await import("@/lib/portal-supabase.server");
+      const { allStudents } = await readPortalSnapshot();
+      const seen = new Set(students.map((s) => s.email));
+      students = [...students, ...allStudents.filter((s) => s.email && !seen.has(s.email))];
+    } catch (readError) {
+      console.error("Supabase student account read failed:", readError);
+    }
+
     return {
       sessions,
-      students: compose(sessions, profiles),
+      students,
       studentSourceError: sessionError ?? error,
     };
+
   },
 );
 
