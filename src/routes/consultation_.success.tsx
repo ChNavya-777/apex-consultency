@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { syncCalendlyBookings } from "@/lib/booking-sync.functions";
 import { CalendarCheck2, CheckCircle2, HelpCircle } from "lucide-react";
 import { Section } from "@/components/site/shared";
 import { Button } from "@/components/ui/button";
@@ -105,6 +107,27 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 function ConsultationSuccess() {
   const s = Route.useSearch();
+
+  /*
+   * Phase 6C-2: the Calendly → Booking Sheet integration is external, so returning from a
+   * booking is the app's earliest signal that a new booking row exists. Fire-and-forget sync
+   * passes copy it into Supabase; the second pass covers the Booking Sheet read cache window.
+   * Purely a background call — nothing on this page changes.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      void syncCalendlyBookings().catch(() => undefined);
+    };
+    run();
+    const later = window.setTimeout(run, 45_000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(later);
+    };
+  }, []);
+
 
   const dateText = formatDate(s.event_start_time);
   const startText = formatTime(s.event_start_time);
