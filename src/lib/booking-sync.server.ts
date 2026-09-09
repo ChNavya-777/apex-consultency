@@ -243,8 +243,8 @@ export async function syncBookingsToSupabase(): Promise<BookingSyncReport> {
         sessionId = existing.id;
         // Preserve the stored status classification of historical rows: only overwrite `status`
         // when this booking is (now) cancelled.
-        const patch: Record<string, unknown> = { ...values };
-        if (patch["status"] === null) delete patch["status"];
+        const { status: statusValue, ...withoutStatus } = values;
+        const patch = statusValue === null ? withoutStatus : values;
 
         const changed = Object.entries(patch).some(([key, value]) => {
           const current = (existing as Record<string, unknown>)[key] ?? null;
