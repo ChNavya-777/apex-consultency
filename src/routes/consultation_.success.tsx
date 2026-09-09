@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { syncCalendlyBookings } from "@/lib/booking-sync.functions";
 import { CalendarCheck2, CheckCircle2, HelpCircle } from "lucide-react";
 import { Section } from "@/components/site/shared";
 import { Button } from "@/components/ui/button";
