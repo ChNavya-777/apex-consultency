@@ -46,6 +46,7 @@ import { Route as AdminCounsellorsIndexRouteImport } from './routes/admin.counse
 import { Route as AdminCounsellorsIdRouteImport } from './routes/admin.counsellors.$id'
 import { Route as AdminSessionsIndexRouteImport } from './routes/admin.sessions.index'
 import { Route as AdminSessionsIdRouteImport } from './routes/admin.sessions.$id'
+import { Route as ApiPublicBookingSyncRouteImport } from './routes/api/public/booking-sync'
 import { Route as CounsellorSessionsIndexRouteImport } from './routes/counsellor.sessions.index'
 import { Route as CounsellorSessionsIdRouteImport } from './routes/counsellor.sessions.$id'
 import { Route as StudentSessionsIndexRouteImport } from './routes/student.sessions.index'
@@ -236,6 +237,11 @@ const AdminSessionsIdRoute = AdminSessionsIdRouteImport.update({
   path: '/admin/sessions/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBookingSyncRoute = ApiPublicBookingSyncRouteImport.update({
+  id: '/api/public/booking-sync',
+  path: '/api/public/booking-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CounsellorSessionsIndexRoute = CounsellorSessionsIndexRouteImport.update({
   id: '/counsellor/sessions/',
   path: '/counsellor/sessions/',
@@ -293,6 +299,7 @@ export interface FileRoutesByFullPath {
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/api/public/booking-sync': typeof ApiPublicBookingSyncRoute
   '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
@@ -336,6 +343,7 @@ export interface FileRoutesByTo {
   '/universities': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/api/public/booking-sync': typeof ApiPublicBookingSyncRoute
   '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors': typeof AdminCounsellorsIndexRoute
@@ -380,6 +388,7 @@ export interface FileRoutesById {
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/api/public/booking-sync': typeof ApiPublicBookingSyncRoute
   '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
@@ -425,6 +434,7 @@ export interface FileRouteTypes {
     | '/universities/'
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
+    | '/api/public/booking-sync'
     | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
@@ -468,6 +478,7 @@ export interface FileRouteTypes {
     | '/universities'
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
+    | '/api/public/booking-sync'
     | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors'
@@ -511,6 +522,7 @@ export interface FileRouteTypes {
     | '/universities/'
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
+    | '/api/public/booking-sync'
     | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
@@ -555,6 +567,7 @@ export interface RootRouteChildren {
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
   AdminCounsellorsIdRoute: typeof AdminCounsellorsIdRoute
   AdminSessionsIdRoute: typeof AdminSessionsIdRoute
+  ApiPublicBookingSyncRoute: typeof ApiPublicBookingSyncRoute
   CounsellorSessionsIdRoute: typeof CounsellorSessionsIdRoute
   StudentSessionsIdRoute: typeof StudentSessionsIdRoute
   AdminCounsellorsIndexRoute: typeof AdminCounsellorsIndexRoute
@@ -824,6 +837,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSessionsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/booking-sync': {
+      id: '/api/public/booking-sync'
+      path: '/api/public/booking-sync'
+      fullPath: '/api/public/booking-sync'
+      preLoaderRoute: typeof ApiPublicBookingSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/counsellor/sessions/': {
       id: '/counsellor/sessions/'
       path: '/counsellor/sessions'
@@ -891,6 +911,7 @@ const rootRouteChildren: RootRouteChildren = {
   UniversitiesIndexRoute: UniversitiesIndexRoute,
   AdminCounsellorsIdRoute: AdminCounsellorsIdRoute,
   AdminSessionsIdRoute: AdminSessionsIdRoute,
+  ApiPublicBookingSyncRoute: ApiPublicBookingSyncRoute,
   CounsellorSessionsIdRoute: CounsellorSessionsIdRoute,
   StudentSessionsIdRoute: StudentSessionsIdRoute,
   AdminCounsellorsIndexRoute: AdminCounsellorsIndexRoute,
