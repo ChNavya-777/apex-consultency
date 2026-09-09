@@ -136,10 +136,12 @@ async function fetchSnapshot(): Promise<Snapshot> {
     return {
       bookingUid: row.booking_uid,
       studentName: row.student_name ?? student?.full_name ?? "",
-      studentEmail: normalizeEmail(row.student_email ?? student?.email ?? ""),
+      // Relational ids are authoritative for the access filters; the stored email is a fallback.
+      studentEmail: normalizeEmail(student?.email ?? row.student_email ?? ""),
       studentId: row.student_id ?? null,
       counsellorName: (row.counsellor_name ?? "").trim() || counsellor?.full_name || "",
-      counsellorEmail: normalizeEmail(row.counsellor_email ?? counsellor?.email ?? ""),
+      counsellorEmail: normalizeEmail(counsellor?.email ?? row.counsellor_email ?? ""),
+
       // Supabase already stores the actual meeting slot: used as-is, no derivation, no offset.
       startTime: iso(row.start_time),
       endTime: iso(row.end_time),
