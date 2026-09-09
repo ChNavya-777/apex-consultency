@@ -95,62 +95,101 @@ export const Route = createFileRoute("/api/consultation")({
           additionalInfo: data.message,
         };
 
-        try {
-          const endpoint =
-            process.env["CONSULTATION_APPS_SCRIPT_URL"]?.trim() || APPS_SCRIPT_WEB_APP_URL;
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-            },
-            body: JSON.stringify(payload),
-            redirect: "follow",
-            // Without this the request can hang until the platform gateway
-            // times out, which surfaces to the student as a blank 502 page.
-            signal: AbortSignal.timeout(15_000),
+        /** Existing Apps Script / Google Sheet flow — unchanged behaviour, now reported as a flag. */
+        const writeSheet = async (): Promise<{ ok: boolean; message?: string }> => {
+          try {
+            const endpoint =
+              process.env["CONSULTATION_APPS_SCRIPT_URL"]?.trim() || APPS_SCRIPT_WEB_APP_URL;
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                "User-Agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+              },
+              body: JSON.stringify(payload),
+              redirect: "follow",
+              // Without this the request can hang until the platform gateway
+              // times out, which surfaces to the student as a blank 502 page.
+              signal: AbortSignal.timeout(15_000),
+            });
+
+            if (!response.ok) {
+              console.error(`Apps Script web app failed (${response.status})`);
+              return {
+                ok: false,
+                message:
+                  "The submission service is temporarily unavailable. Please try again later.",
+              };
+            }
+
+            // Treat the submission as successful only when the Apps Script
+            // response explicitly reports success.
+            const result = (await response.json().catch(() => null)) as
+              | { success?: boolean; message?: string }
+              | null;
+
+            if (!result || result.success !== true) {
+              console.error("Apps Script web app did not confirm success:", result);
+              return { ok: false, message: "Your request could not be confirmed. Please try again." };
+            }
+            return { ok: true };
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Network error";
+            console.error("Apps Script web app network error:", message);
+            return { ok: false, message: "Network error. Please try again." };
+          }
+        };
+
+        const sheet = await writeSheet();
+
+        // Supabase is the primary application store; a failure here never reverts the sheet row.
+        const { writeConsultationToSupabase } = await import("@/lib/consultation-write.server");
+        const db = await writeConsultationToSupabase({ ...data, submittedAt });
+
+        if (sheet.ok && db.ok) {
+          return Response.json({
+            success: true,
+            sheet: true,
+            database: true,
+            studentId: db.studentId,
+            profileId: db.profileId,
           });
+        }
 
+        if (sheet.ok && !db.ok) {
+          // The student's submission is safely recorded in the sheet; flag the storage failure.
+          return Response.json({
+            success: true,
+            sheet: true,
+            database: false,
+            message:
+              "Your request was received, but saving it to our records failed. Our team has been notified.",
+          });
+        }
 
-          if (!response.ok) {
-            console.error(`Apps Script web app failed (${response.status})`);
-            return Response.json(
-              {
-                success: false,
-                message: "The submission service is temporarily unavailable. Please try again later.",
-              },
-              { status: 502 }
-            );
-          }
-
-          // Treat the submission as successful only when the Apps Script
-          // response explicitly reports success.
-          const result = (await response.json().catch(() => null)) as
-            | { success?: boolean; message?: string }
-            | null;
-
-          if (!result || result.success !== true) {
-            console.error("Apps Script web app did not confirm success:", result);
-            return Response.json(
-              {
-                success: false,
-                message: "Your request could not be confirmed. Please try again.",
-              },
-              { status: 502 }
-            );
-          }
-
-          return Response.json({ success: true });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Network error";
-          console.error("Apps Script web app network error:", message);
+        if (!sheet.ok && db.ok) {
           return Response.json(
-            { success: false, message: "Network error. Please try again." },
+            {
+              success: false,
+              sheet: false,
+              database: true,
+              message: sheet.message ?? "Your request could not be fully confirmed.",
+            },
             { status: 502 }
           );
         }
+
+        return Response.json(
+          {
+            success: false,
+            sheet: false,
+            database: false,
+            message: sheet.message ?? "Submission failed. Please try again.",
+          },
+          { status: 502 }
+        );
       },
     },
   },
