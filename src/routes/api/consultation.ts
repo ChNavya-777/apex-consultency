@@ -72,11 +72,14 @@ export const Route = createFileRoute("/api/consultation")({
         }
 
         const data = parsed.data;
+        // One instant for both destinations: IST wall clock for the sheet, the same
+        // instant as timestamptz for Supabase.
+        const submittedAt = new Date();
         // Property names expected by the Apps Script Web App.
         const payload = {
           // "Submitted At" is generated here in Asia/Kolkata (IST) so the sheet
           // value never depends on the Apps Script / spreadsheet timezone.
-          submittedAt: formatIstTimestamp(new Date()),
+          submittedAt: formatIstTimestamp(submittedAt),
           fullName: data.fullName,
           phone: data.phone,
           email: data.email,
