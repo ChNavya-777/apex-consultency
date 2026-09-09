@@ -109,24 +109,15 @@ function ConsultationSuccess() {
   const s = Route.useSearch();
 
   /*
-   * Phase 6C-2: the Calendly → Booking Sheet integration is external, so returning from a
-   * booking is the app's earliest signal that a new booking row exists. Fire-and-forget sync
-   * passes copy it into Supabase; the second pass covers the Booking Sheet read cache window.
-   * Purely a background call — nothing on this page changes.
+   * Phase 6C-2B: synchronisation no longer depends on this page. The scheduled server-side call to
+   * /api/public/booking-sync is the authoritative importer; this is only an optional fast path that
+   * shortens the wait when the student happens to land here. Failures are ignored by design.
    */
   useEffect(() => {
-    let cancelled = false;
-    const run = () => {
-      if (cancelled) return;
-      void syncCalendlyBookings().catch(() => undefined);
-    };
-    run();
-    const later = window.setTimeout(run, 45_000);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(later);
-    };
+    void syncCalendlyBookings().catch(() => undefined);
   }, []);
+
+
 
 
   const dateText = formatDate(s.event_start_time);
