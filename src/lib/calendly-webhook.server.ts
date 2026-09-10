@@ -148,6 +148,9 @@ export function toBookingFromWebhook(event: string, payload: unknown): Booking |
   // Calendly marks the OLD invitee of a reschedule with `rescheduled: true`.
   const rescheduled = p["rescheduled"] === true;
 
+  const eventTypeUri = str(scheduled["event_type"]);
+  const calendlyLocation = formatCalendlyLocation(scheduled["location"]);
+
   return {
     bookingUid,
     studentEmail,
@@ -166,6 +169,9 @@ export function toBookingFromWebhook(event: string, payload: unknown): Booking |
     cancelled,
     rescheduled,
     questions,
+    calendlyEventTypeUri: eventTypeUri,
+    calendlyLocation,
+    calendlyInviteeUri: inviteeUri,
   };
 }
 
