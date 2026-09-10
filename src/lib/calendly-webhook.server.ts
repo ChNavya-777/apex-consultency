@@ -101,9 +101,27 @@ type Booking = {
   cancelled: boolean;
   rescheduled: boolean;
   questions: QA[];
+  calendlyEventTypeUri: string;
+  calendlyLocation: string;
+  calendlyInviteeUri: string;
 };
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+
+function formatCalendlyLocation(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object") {
+    const loc = value as Record<string, unknown>;
+    if (typeof loc["join_url"] === "string" && loc["join_url"]) return loc["join_url"].trim();
+    if (typeof loc["location"] === "string" && loc["location"]) return loc["location"].trim();
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
 
 export function toBookingFromWebhook(event: string, payload: unknown): Booking | null {
   const p = (payload ?? {}) as Record<string, unknown>;
