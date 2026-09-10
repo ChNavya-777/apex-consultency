@@ -47,6 +47,7 @@ import { Route as AdminCounsellorsIdRouteImport } from './routes/admin.counsello
 import { Route as AdminSessionsIndexRouteImport } from './routes/admin.sessions.index'
 import { Route as AdminSessionsIdRouteImport } from './routes/admin.sessions.$id'
 import { Route as ApiPublicBookingSyncRouteImport } from './routes/api/public/booking-sync'
+import { Route as ApiPublicCalendlyWebhookRouteImport } from './routes/api/public/calendly-webhook'
 import { Route as CounsellorSessionsIndexRouteImport } from './routes/counsellor.sessions.index'
 import { Route as CounsellorSessionsIdRouteImport } from './routes/counsellor.sessions.$id'
 import { Route as StudentSessionsIndexRouteImport } from './routes/student.sessions.index'
@@ -242,6 +243,12 @@ const ApiPublicBookingSyncRoute = ApiPublicBookingSyncRouteImport.update({
   path: '/api/public/booking-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCalendlyWebhookRoute =
+  ApiPublicCalendlyWebhookRouteImport.update({
+    id: '/api/public/calendly-webhook',
+    path: '/api/public/calendly-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const CounsellorSessionsIndexRoute = CounsellorSessionsIndexRouteImport.update({
   id: '/counsellor/sessions/',
   path: '/counsellor/sessions/',
@@ -300,6 +307,7 @@ export interface FileRoutesByFullPath {
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
   '/api/public/booking-sync': typeof ApiPublicBookingSyncRoute
+  '/api/public/calendly-webhook': typeof ApiPublicCalendlyWebhookRoute
   '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
@@ -344,6 +352,7 @@ export interface FileRoutesByTo {
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
   '/api/public/booking-sync': typeof ApiPublicBookingSyncRoute
+  '/api/public/calendly-webhook': typeof ApiPublicCalendlyWebhookRoute
   '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors': typeof AdminCounsellorsIndexRoute
@@ -389,6 +398,7 @@ export interface FileRoutesById {
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
   '/api/public/booking-sync': typeof ApiPublicBookingSyncRoute
+  '/api/public/calendly-webhook': typeof ApiPublicCalendlyWebhookRoute
   '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
@@ -435,6 +445,7 @@ export interface FileRouteTypes {
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
     | '/api/public/booking-sync'
+    | '/api/public/calendly-webhook'
     | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
@@ -479,6 +490,7 @@ export interface FileRouteTypes {
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
     | '/api/public/booking-sync'
+    | '/api/public/calendly-webhook'
     | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors'
@@ -523,6 +535,7 @@ export interface FileRouteTypes {
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
     | '/api/public/booking-sync'
+    | '/api/public/calendly-webhook'
     | '/counsellor/sessions/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
@@ -568,6 +581,7 @@ export interface RootRouteChildren {
   AdminCounsellorsIdRoute: typeof AdminCounsellorsIdRoute
   AdminSessionsIdRoute: typeof AdminSessionsIdRoute
   ApiPublicBookingSyncRoute: typeof ApiPublicBookingSyncRoute
+  ApiPublicCalendlyWebhookRoute: typeof ApiPublicCalendlyWebhookRoute
   CounsellorSessionsIdRoute: typeof CounsellorSessionsIdRoute
   StudentSessionsIdRoute: typeof StudentSessionsIdRoute
   AdminCounsellorsIndexRoute: typeof AdminCounsellorsIndexRoute
@@ -844,6 +858,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBookingSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/calendly-webhook': {
+      id: '/api/public/calendly-webhook'
+      path: '/api/public/calendly-webhook'
+      fullPath: '/api/public/calendly-webhook'
+      preLoaderRoute: typeof ApiPublicCalendlyWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/counsellor/sessions/': {
       id: '/counsellor/sessions/'
       path: '/counsellor/sessions'
@@ -912,6 +933,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCounsellorsIdRoute: AdminCounsellorsIdRoute,
   AdminSessionsIdRoute: AdminSessionsIdRoute,
   ApiPublicBookingSyncRoute: ApiPublicBookingSyncRoute,
+  ApiPublicCalendlyWebhookRoute: ApiPublicCalendlyWebhookRoute,
   CounsellorSessionsIdRoute: CounsellorSessionsIdRoute,
   StudentSessionsIdRoute: StudentSessionsIdRoute,
   AdminCounsellorsIndexRoute: AdminCounsellorsIndexRoute,
