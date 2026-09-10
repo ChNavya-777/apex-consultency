@@ -111,6 +111,9 @@ export type Database = {
           booking_event: string | null
           booking_status: string | null
           booking_uid: string
+          calendly_event_type_uri: string | null
+          calendly_invitee_uri: string | null
+          calendly_location: string | null
           cancel_url: string | null
           counsellor_email: string | null
           counsellor_id: string | null
@@ -135,6 +138,9 @@ export type Database = {
           booking_event?: string | null
           booking_status?: string | null
           booking_uid: string
+          calendly_event_type_uri?: string | null
+          calendly_invitee_uri?: string | null
+          calendly_location?: string | null
           cancel_url?: string | null
           counsellor_email?: string | null
           counsellor_id?: string | null
@@ -159,6 +165,9 @@ export type Database = {
           booking_event?: string | null
           booking_status?: string | null
           booking_uid?: string
+          calendly_event_type_uri?: string | null
+          calendly_invitee_uri?: string | null
+          calendly_location?: string | null
           cancel_url?: string | null
           counsellor_email?: string | null
           counsellor_id?: string | null
