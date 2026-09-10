@@ -306,6 +306,9 @@ export async function processCalendlyWebhook(
     end_time: booking.endIso ?? existing?.end_time ?? null,
     rescheduled: booking.rescheduled || existing?.rescheduled === true,
     status: booking.cancelled ? "cancelled" : (existing?.status ?? null),
+    calendly_event_type_uri: booking.calendlyEventTypeUri || existing?.calendly_event_type_uri || null,
+    calendly_location: booking.calendlyLocation || existing?.calendly_location || null,
+    calendly_invitee_uri: booking.calendlyInviteeUri || existing?.calendly_invitee_uri || null,
   };
 
   let sessionId: string;
