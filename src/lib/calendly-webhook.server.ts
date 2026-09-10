@@ -152,17 +152,73 @@ export function toBookingFromWebhook(event: string, payload: unknown): Booking |
 }
 
 /* ------------------------------------------------------------------ */
+/* Calendly API enrichment (server-only, Personal Access Token)        */
+/* ------------------------------------------------------------------ */
+
+const CALENDLY_API = "https://api.calendly.com";
+
+async function calendlyGet(url: string, token: string): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      // Never log the token; only status + resource path.
+      console.warn(`Calendly API ${new URL(url).pathname} responded ${res.status}`);
+      return null;
+    }
+    const body = (await res.json()) as { resource?: unknown };
+    return (body?.resource ?? null) as Record<string, unknown> | null;
+  } catch (error) {
+    console.warn(
+      `Calendly API request failed: ${error instanceof Error ? error.message : "unknown error"}`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Fills any detail the webhook payload omits by reading the authoritative invitee +
+ * scheduled-event resources from the Calendly API. Purely additive: webhook values win,
+ * the API only supplies what is missing, so behaviour is unchanged when the token is absent.
+ */
+export async function enrichCalendlyPayload(payload: unknown): Promise<unknown> {
+  const token = process.env["CALENDLY_PERSONAL_ACCESS_TOKEN"];
+  const p = (payload ?? {}) as Record<string, unknown>;
+  const inviteeUri = str(p["uri"]);
+  if (!token || !inviteeUri.startsWith(`${CALENDLY_API}/`)) return payload;
+
+  const invitee = await calendlyGet(inviteeUri, token);
+  if (!invitee) return payload;
+
+  const merged: Record<string, unknown> = { ...invitee, ...p };
+
+  const webhookScheduled = (p["scheduled_event"] ?? {}) as Record<string, unknown>;
+  const eventUri = str(invitee["event"]) || str(webhookScheduled["uri"]);
+  let scheduled: Record<string, unknown> | null = null;
+  if (eventUri.startsWith(`${CALENDLY_API}/`)) {
+    scheduled = await calendlyGet(eventUri, token);
+  }
+  if (scheduled) {
+    merged["scheduled_event"] = { ...scheduled, ...webhookScheduled };
+  }
+
+  return merged;
+}
+
+/* ------------------------------------------------------------------ */
 /* Supabase write                                                     */
 /* ------------------------------------------------------------------ */
 
 export async function processCalendlyWebhook(
   event: string,
-  payload: unknown,
+  rawPayload: unknown,
 ): Promise<WebhookOutcome> {
   if (event !== "invitee.created" && event !== "invitee.canceled") {
     return { kind: "ignored", reason: `unsupported event: ${event}` };
   }
 
+  const payload = await enrichCalendlyPayload(rawPayload);
   const booking = toBookingFromWebhook(event, payload);
   if (!booking) return { kind: "ignored", reason: "payload lacks booking identity or email" };
 
