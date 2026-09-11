@@ -1,53 +1,47 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 
-type DemoCallInput = {
-  fullName: string;
-  phone: string;
-  email: string;
-  whatsapp?: string;
-};
+const demoCallSchema = z.object({
+  fullName: z.string().trim().min(1).max(120),
+  phone: z.string().trim().min(1).max(30),
+  email: z.string().trim().email().max(255),
+  whatsapp: z.string().trim().max(30).optional().default(""),
+});
+
+export type DemoCallOutcome = { success: boolean; message?: string };
 
 export const submitDemoCall = createServerFn({ method: "POST" })
-  .inputValidator((input: DemoCallInput) => input)
-  .handler(async ({ data }): Promise<{ success: boolean; message?: string }> => {
+  .inputValidator((input: { fullName: string; phone: string; email: string; whatsapp?: string }) =>
+    demoCallSchema.parse(input),
+  )
+  .handler(async ({ data }): Promise<DemoCallOutcome> => {
     const url = process.env["DEMO_CALL_WEBHOOK_URL"];
     if (!url) {
-      return {
-        success: false,
-        message: "Demo call booking is not configured. Please try again later.",
-      };
+      return { success: false, message: "Demo call webhook is not configured." };
     }
 
     const payload = {
       fullName: data.fullName,
       phone: data.phone,
-      email: data.email.trim().toLowerCase(),
-      whatsapp: data.whatsapp ?? "",
-      submittedAt: new Date().toISOString(),
-      source: "apex-website-demo-call",
+      email: data.email.toLowerCase(),
+      whatsapp: data.whatsapp || "",
     };
 
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
-
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
-
       clearTimeout(timeout);
-
-      const responseText = await response.text();
 
       if (!response.ok) {
         return {
           success: false,
-          message: `Webhook failed (${response.status}): ${responseText}`,
+          message: `Submission failed (${response.status}). Please try again.`,
         };
       }
 
