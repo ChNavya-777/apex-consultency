@@ -19,12 +19,16 @@ import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as SuccessStoriesRouteImport } from './routes/success-stories'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as UpdatePasswordRouteImport } from './routes/update-password'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
+import { Route as AdminForgotPasswordRouteImport } from './routes/admin.forgot-password'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminStudentsRouteImport } from './routes/admin.students'
 import { Route as ApiConsultationRouteImport } from './routes/api/consultation'
 import { Route as ConsultationSuccessRouteImport } from './routes/consultation_.success'
+import { Route as CounsellorIndexRouteImport } from './routes/counsellor.index'
 import { Route as CounsellorDashboardRouteImport } from './routes/counsellor.dashboard'
 import { Route as CounsellorLoginRouteImport } from './routes/counsellor.login'
 import { Route as CounsellorProfileRouteImport } from './routes/counsellor.profile'
@@ -34,6 +38,7 @@ import { Route as DestinationsSlugRouteImport } from './routes/destinations.$slu
 import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
 import { Route as ResourcesSlugRouteImport } from './routes/resources.$slug'
 import { Route as StudentApplicationsRouteImport } from './routes/student.applications'
+import { Route as StudentConsultationRouteImport } from './routes/student.consultation'
 import { Route as StudentDashboardRouteImport } from './routes/student.dashboard'
 import { Route as StudentDocumentsRouteImport } from './routes/student.documents'
 import { Route as StudentLoginRouteImport } from './routes/student.login'
@@ -103,9 +108,24 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UpdatePasswordRoute = UpdatePasswordRouteImport.update({
+  id: '/update-password',
+  path: '/update-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/admin/dashboard',
   path: '/admin/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminForgotPasswordRoute = AdminForgotPasswordRouteImport.update({
+  id: '/admin/forgot-password',
+  path: '/admin/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
@@ -131,6 +151,11 @@ const ApiConsultationRoute = ApiConsultationRouteImport.update({
 const ConsultationSuccessRoute = ConsultationSuccessRouteImport.update({
   id: '/consultation_/success',
   path: '/consultation/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CounsellorIndexRoute = CounsellorIndexRouteImport.update({
+  id: '/counsellor/',
+  path: '/counsellor/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CounsellorDashboardRoute = CounsellorDashboardRouteImport.update({
@@ -176,6 +201,11 @@ const ResourcesSlugRoute = ResourcesSlugRouteImport.update({
 const StudentApplicationsRoute = StudentApplicationsRouteImport.update({
   id: '/student/applications',
   path: '/student/applications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentConsultationRoute = StudentConsultationRouteImport.update({
+  id: '/student/consultation',
+  path: '/student/consultation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudentDashboardRoute = StudentDashboardRouteImport.update({
@@ -281,7 +311,9 @@ export interface FileRoutesByFullPath {
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/terms': typeof TermsRoute
+  '/update-password': typeof UpdatePasswordRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/forgot-password': typeof AdminForgotPasswordRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
@@ -294,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/student/applications': typeof StudentApplicationsRoute
+  '/student/consultation': typeof StudentConsultationRoute
   '/student/dashboard': typeof StudentDashboardRoute
   '/student/documents': typeof StudentDocumentsRoute
   '/student/login': typeof StudentLoginRoute
@@ -301,6 +334,8 @@ export interface FileRoutesByFullPath {
   '/student/profile': typeof StudentProfileRoute
   '/student/settings': typeof StudentSettingsRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
+  '/admin/': typeof AdminIndexRoute
+  '/counsellor/': typeof CounsellorIndexRoute
   '/destinations/': typeof DestinationsIndexRoute
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
@@ -326,7 +361,9 @@ export interface FileRoutesByTo {
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/terms': typeof TermsRoute
+  '/update-password': typeof UpdatePasswordRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/forgot-password': typeof AdminForgotPasswordRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
@@ -339,6 +376,7 @@ export interface FileRoutesByTo {
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/student/applications': typeof StudentApplicationsRoute
+  '/student/consultation': typeof StudentConsultationRoute
   '/student/dashboard': typeof StudentDashboardRoute
   '/student/documents': typeof StudentDocumentsRoute
   '/student/login': typeof StudentLoginRoute
@@ -346,6 +384,8 @@ export interface FileRoutesByTo {
   '/student/profile': typeof StudentProfileRoute
   '/student/settings': typeof StudentSettingsRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
+  '/admin': typeof AdminIndexRoute
+  '/counsellor': typeof CounsellorIndexRoute
   '/destinations': typeof DestinationsIndexRoute
   '/resources': typeof ResourcesIndexRoute
   '/universities': typeof UniversitiesIndexRoute
@@ -372,7 +412,9 @@ export interface FileRoutesById {
   '/services': typeof ServicesRoute
   '/success-stories': typeof SuccessStoriesRoute
   '/terms': typeof TermsRoute
+  '/update-password': typeof UpdatePasswordRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/forgot-password': typeof AdminForgotPasswordRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
@@ -385,6 +427,7 @@ export interface FileRoutesById {
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/student/applications': typeof StudentApplicationsRoute
+  '/student/consultation': typeof StudentConsultationRoute
   '/student/dashboard': typeof StudentDashboardRoute
   '/student/documents': typeof StudentDocumentsRoute
   '/student/login': typeof StudentLoginRoute
@@ -392,6 +435,8 @@ export interface FileRoutesById {
   '/student/profile': typeof StudentProfileRoute
   '/student/settings': typeof StudentSettingsRoute
   '/universities/$slug': typeof UniversitiesSlugRoute
+  '/admin/': typeof AdminIndexRoute
+  '/counsellor/': typeof CounsellorIndexRoute
   '/destinations/': typeof DestinationsIndexRoute
   '/resources/': typeof ResourcesIndexRoute
   '/universities/': typeof UniversitiesIndexRoute
@@ -419,7 +464,9 @@ export interface FileRouteTypes {
     | '/services'
     | '/success-stories'
     | '/terms'
+    | '/update-password'
     | '/admin/dashboard'
+    | '/admin/forgot-password'
     | '/admin/login'
     | '/admin/settings'
     | '/admin/students'
@@ -432,6 +479,7 @@ export interface FileRouteTypes {
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/student/applications'
+    | '/student/consultation'
     | '/student/dashboard'
     | '/student/documents'
     | '/student/login'
@@ -439,6 +487,8 @@ export interface FileRouteTypes {
     | '/student/profile'
     | '/student/settings'
     | '/universities/$slug'
+    | '/admin/'
+    | '/counsellor/'
     | '/destinations/'
     | '/resources/'
     | '/universities/'
@@ -464,7 +514,9 @@ export interface FileRouteTypes {
     | '/services'
     | '/success-stories'
     | '/terms'
+    | '/update-password'
     | '/admin/dashboard'
+    | '/admin/forgot-password'
     | '/admin/login'
     | '/admin/settings'
     | '/admin/students'
@@ -477,6 +529,7 @@ export interface FileRouteTypes {
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/student/applications'
+    | '/student/consultation'
     | '/student/dashboard'
     | '/student/documents'
     | '/student/login'
@@ -484,6 +537,8 @@ export interface FileRouteTypes {
     | '/student/profile'
     | '/student/settings'
     | '/universities/$slug'
+    | '/admin'
+    | '/counsellor'
     | '/destinations'
     | '/resources'
     | '/universities'
@@ -509,7 +564,9 @@ export interface FileRouteTypes {
     | '/services'
     | '/success-stories'
     | '/terms'
+    | '/update-password'
     | '/admin/dashboard'
+    | '/admin/forgot-password'
     | '/admin/login'
     | '/admin/settings'
     | '/admin/students'
@@ -522,6 +579,7 @@ export interface FileRouteTypes {
     | '/destinations/$slug'
     | '/resources/$slug'
     | '/student/applications'
+    | '/student/consultation'
     | '/student/dashboard'
     | '/student/documents'
     | '/student/login'
@@ -529,6 +587,8 @@ export interface FileRouteTypes {
     | '/student/profile'
     | '/student/settings'
     | '/universities/$slug'
+    | '/admin/'
+    | '/counsellor/'
     | '/destinations/'
     | '/resources/'
     | '/universities/'
@@ -555,7 +615,9 @@ export interface RootRouteChildren {
   ServicesRoute: typeof ServicesRoute
   SuccessStoriesRoute: typeof SuccessStoriesRoute
   TermsRoute: typeof TermsRoute
+  UpdatePasswordRoute: typeof UpdatePasswordRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminForgotPasswordRoute: typeof AdminForgotPasswordRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminStudentsRoute: typeof AdminStudentsRoute
@@ -568,6 +630,7 @@ export interface RootRouteChildren {
   DestinationsSlugRoute: typeof DestinationsSlugRoute
   ResourcesSlugRoute: typeof ResourcesSlugRoute
   StudentApplicationsRoute: typeof StudentApplicationsRoute
+  StudentConsultationRoute: typeof StudentConsultationRoute
   StudentDashboardRoute: typeof StudentDashboardRoute
   StudentDocumentsRoute: typeof StudentDocumentsRoute
   StudentLoginRoute: typeof StudentLoginRoute
@@ -575,6 +638,8 @@ export interface RootRouteChildren {
   StudentProfileRoute: typeof StudentProfileRoute
   StudentSettingsRoute: typeof StudentSettingsRoute
   UniversitiesSlugRoute: typeof UniversitiesSlugRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  CounsellorIndexRoute: typeof CounsellorIndexRoute
   DestinationsIndexRoute: typeof DestinationsIndexRoute
   ResourcesIndexRoute: typeof ResourcesIndexRoute
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
@@ -662,11 +727,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/update-password': {
+      id: '/update-password'
+      path: '/update-password'
+      fullPath: '/update-password'
+      preLoaderRoute: typeof UpdatePasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/dashboard': {
       id: '/admin/dashboard'
       path: '/admin/dashboard'
       fullPath: '/admin/dashboard'
       preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/forgot-password': {
+      id: '/admin/forgot-password'
+      path: '/admin/forgot-password'
+      fullPath: '/admin/forgot-password'
+      preLoaderRoute: typeof AdminForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/login': {
@@ -702,6 +788,13 @@ declare module '@tanstack/react-router' {
       path: '/consultation/success'
       fullPath: '/consultation/success'
       preLoaderRoute: typeof ConsultationSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/counsellor/': {
+      id: '/counsellor/'
+      path: '/counsellor'
+      fullPath: '/counsellor/'
+      preLoaderRoute: typeof CounsellorIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/counsellor/dashboard': {
@@ -765,6 +858,13 @@ declare module '@tanstack/react-router' {
       path: '/student/applications'
       fullPath: '/student/applications'
       preLoaderRoute: typeof StudentApplicationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student/consultation': {
+      id: '/student/consultation'
+      path: '/student/consultation'
+      fullPath: '/student/consultation'
+      preLoaderRoute: typeof StudentConsultationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/student/dashboard': {
@@ -907,7 +1007,9 @@ const rootRouteChildren: RootRouteChildren = {
   ServicesRoute: ServicesRoute,
   SuccessStoriesRoute: SuccessStoriesRoute,
   TermsRoute: TermsRoute,
+  UpdatePasswordRoute: UpdatePasswordRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminForgotPasswordRoute: AdminForgotPasswordRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminStudentsRoute: AdminStudentsRoute,
@@ -920,6 +1022,7 @@ const rootRouteChildren: RootRouteChildren = {
   DestinationsSlugRoute: DestinationsSlugRoute,
   ResourcesSlugRoute: ResourcesSlugRoute,
   StudentApplicationsRoute: StudentApplicationsRoute,
+  StudentConsultationRoute: StudentConsultationRoute,
   StudentDashboardRoute: StudentDashboardRoute,
   StudentDocumentsRoute: StudentDocumentsRoute,
   StudentLoginRoute: StudentLoginRoute,
@@ -927,6 +1030,8 @@ const rootRouteChildren: RootRouteChildren = {
   StudentProfileRoute: StudentProfileRoute,
   StudentSettingsRoute: StudentSettingsRoute,
   UniversitiesSlugRoute: UniversitiesSlugRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  CounsellorIndexRoute: CounsellorIndexRoute,
   DestinationsIndexRoute: DestinationsIndexRoute,
   ResourcesIndexRoute: ResourcesIndexRoute,
   UniversitiesIndexRoute: UniversitiesIndexRoute,

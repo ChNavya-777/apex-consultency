@@ -4,7 +4,7 @@ import { GraduationCap, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { cn } from "@/lib/utils";
-import { roleHome, roleLogin, signOut, useSession, type PortalRole, type PortalSession } from "@/lib/portal-auth";
+import { roleHome, roleLogin, signOut, syncTokenCookie, useSession, type PortalRole, type PortalSession } from "@/lib/portal-auth";
 
 /* ------------------------------------------------------------------ */
 /* Access control (prototype, client-side)                            */
@@ -232,12 +232,14 @@ export function PortalLogin({
 }: {
   title: string;
   subtitle: string;
-  onSubmit: (email: string, password: string) => boolean;
+  onSubmit: (email: string, password: string) => boolean | Promise<boolean>;
   footer?: ReactNode;
 }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-navy-deep px-4 py-12">
@@ -251,11 +253,40 @@ export function PortalLogin({
 
           <form
             className="mt-6 space-y-4"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              const ok = onSubmit(email.trim(), password);
-              if (!ok) setError("Incorrect email or password. Please try again.");
-              else setError(null);
+              if (busy) return;
+              setError(null);
+              setBusy(true);
+              try {
+                // Try client/prototype onSubmit callback first
+                const ok = await onSubmit(email.trim(), password);
+                if (ok) {
+                  setBusy(false);
+                  return;
+                }
+
+                // Fallback: try Supabase Auth sign-in directly
+                const { supabase } = await import("@/integrations/supabase/client");
+                const { data: sbData, error: sbError } = await supabase.auth.signInWithPassword({
+                  email: email.trim(),
+                  password,
+                });
+
+                if (sbError) {
+                  setError("Incorrect email or password. Please try again.");
+                } else if (sbData.user) {
+                  setError(null);
+                  syncTokenCookie(sbData.session?.access_token);
+                  const role = (sbData.user.user_metadata?.role as PortalRole) || "student";
+                  const targetHome = roleHome[role] || "/student/dashboard";
+                  navigate({ to: targetHome, replace: true });
+                }
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
+              } finally {
+                setBusy(false);
+              }
             }}
           >
             <label className="block">
@@ -272,9 +303,14 @@ export function PortalLogin({
               />
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                Password
-              </span>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Password
+                </span>
+                <Link to="/admin/forgot-password" className="text-xs font-medium text-brand-blue hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <PasswordInput
                 required
                 autoComplete="current-password"
@@ -290,8 +326,8 @@ export function PortalLogin({
               </p>
             )}
 
-            <Button type="submit" className="w-full" size="lg">
-              Sign In
+            <Button type="submit" className="w-full" size="lg" disabled={busy}>
+              {busy ? "Signing In…" : "Sign In"}
             </Button>
           </form>
 
@@ -301,3 +337,4 @@ export function PortalLogin({
     </div>
   );
 }
+

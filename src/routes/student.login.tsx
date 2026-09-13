@@ -4,7 +4,7 @@ import { useState } from "react";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { signInStudent, startStudentSession } from "@/lib/portal-auth";
+import { syncTokenCookie } from "@/lib/portal-auth";
 import { createStudentAccount, studentLogin } from "@/lib/student-auth.functions";
 import { cn } from "@/lib/utils";
 import { site } from "@/data/site";
@@ -80,27 +80,49 @@ function StudentLoginPage() {
                   e.preventDefault();
                   if (busy) return;
                   setError(null);
-
-                  // Existing prototype test account keeps working unchanged.
-                  const local = signInStudent(email.trim(), password);
-                  if (local) {
-                    setPassword("");
-                    void navigate({ to: afterSignIn, replace: true });
-                    return;
-                  }
-
                   setBusy(true);
+
                   try {
-                    const result = await login({
-                      data: { email: email.trim(), password },
+                    const trimmedEmail = email.trim().toLowerCase();
+
+                    // 1. Try Supabase Auth first (direct login for already provisioned/migrated students)
+                    const { supabase } = await import("@/integrations/supabase/client");
+                    const { data: sbData, error: sbErr } = await supabase.auth.signInWithPassword({
+                      email: trimmedEmail,
+                      password,
                     });
+
+                    if (!sbErr && sbData.session) {
+                      syncTokenCookie(sbData.session.access_token);
+                      setPassword("");
+                      void navigate({ to: afterSignIn, replace: true });
+                      return;
+                    }
+
+                    // 2. Fallback to server function for legacy verification & on-demand Supabase Auth migration
+                    const result = await login({
+                      data: { email: trimmedEmail, password },
+                    });
+
                     if (!result.success) {
                       setError(result.message);
                       return;
                     }
-                    startStudentSession(result.name, result.email);
-                    setPassword("");
-                    void navigate({ to: afterSignIn, replace: true });
+
+                    // 3. After successful server-side migration, establish authentic Supabase Auth session in browser
+                    const { data: sbData2, error: sbErr2 } = await supabase.auth.signInWithPassword({
+                      email: trimmedEmail,
+                      password,
+                    });
+
+                    if (!sbErr2 && sbData2.session) {
+                      syncTokenCookie(sbData2.session.access_token);
+                      setPassword("");
+                      void navigate({ to: afterSignIn, replace: true });
+                      return;
+                    } else {
+                      setError("Authentication session setup failed. Please try signing in again.");
+                    }
                   } catch {
                     setError("Invalid email or password.");
                   } finally {
@@ -142,7 +164,7 @@ function StudentLoginPage() {
               </form>
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
-                <Link to="/contact" className="font-medium text-brand-blue hover:underline">
+                <Link to="/admin/forgot-password" className="font-medium text-brand-blue hover:underline">
                   Forgot Password?
                 </Link>
                 <button
@@ -213,10 +235,23 @@ function StudentLoginPage() {
                     setCreateError(result.message);
                     return;
                   }
-                  startStudentSession(result.name, result.email);
-                  setNewPassword("");
-                  setConfirmPassword("");
-                  void navigate({ to: "/consultation" });
+
+                  // Establish authentic Supabase Auth session after user creation
+                  const { supabase } = await import("@/integrations/supabase/client");
+                  const { data: sbData, error: sbErr } = await supabase.auth.signInWithPassword({
+                    email: mail,
+                    password: newPassword,
+                  });
+
+                  if (!sbErr && sbData.session) {
+                    syncTokenCookie(sbData.session.access_token);
+                    setNewPassword("");
+                    setConfirmPassword("");
+                    void navigate({ to: "/consultation" });
+                  } else {
+                    setCreateError("Account created, but automatic sign-in failed. Please sign in.");
+                    setMode("signin");
+                  }
                 } catch {
                   setCreateError(
                     "Unable to create this account. Please check your details or use another email.",
@@ -296,4 +331,5 @@ function StudentLoginPage() {
     </div>
   );
 }
+
 

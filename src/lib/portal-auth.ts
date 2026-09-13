@@ -258,8 +258,21 @@ export function startStudentSession(name: string, email: string): PortalSession 
 }
 
 
+export function syncTokenCookie(accessToken?: string | null) {
+  if (typeof document === "undefined") return;
+  if (accessToken) {
+    document.cookie = `sb-access-token=${encodeURIComponent(accessToken)}; Path=/; SameSite=Lax; Secure`;
+  } else {
+    document.cookie = "sb-access-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;";
+  }
+}
+
 export function signOut() {
   writeSession(null);
+  syncTokenCookie(null);
+  import("@/integrations/supabase/client").then(({ supabase }) => {
+    supabase.auth.signOut().catch(() => {});
+  });
 }
 
 export function resetCounsellorPassword(email: string) {
@@ -271,15 +284,67 @@ export function resetCounsellorPassword(email: string) {
 export function useSession(): PortalSession | null | undefined {
   const [session, setSession] = useState<PortalSession | null | undefined>(undefined);
 
-  const sync = useCallback(() => setSession(readSession()), []);
+  const sync = useCallback(() => {
+    import("@/integrations/supabase/client")
+      .then(({ supabase }) => supabase.auth.getSession())
+      .then(({ data }) => {
+        if (data.session?.user) {
+          syncTokenCookie(data.session.access_token);
+          const user = data.session.user;
+          const role = (user.user_metadata?.role as PortalRole) || "student";
+          setSession({
+            role,
+            name: (user.user_metadata?.full_name as string) || user.email || "",
+            email: user.email || "",
+          });
+        } else {
+          // Fall back to prototype local session ONLY if no active Supabase Auth session exists
+          const local = readSession();
+          if (local) {
+            setSession(local);
+          } else {
+            syncTokenCookie(null);
+            setSession(null);
+          }
+        }
+      })
+      .catch(() => {
+        const local = readSession();
+        setSession(local ?? null);
+      });
+  }, []);
 
   useEffect(() => {
     sync();
     listeners.add(sync);
+
+    let unsubscribe: (() => void) | undefined;
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      const { data } = supabase.auth.onAuthStateChange((_event, sbSession) => {
+        if (sbSession?.user) {
+          syncTokenCookie(sbSession.access_token);
+          const user = sbSession.user;
+          const role = (user.user_metadata?.role as PortalRole) || "student";
+          setSession({
+            role,
+            name: (user.user_metadata?.full_name as string) || user.email || "",
+            email: user.email || "",
+          });
+        } else {
+          syncTokenCookie(null);
+          setSession(readSession());
+        }
+      });
+      unsubscribe = data.subscription.unsubscribe;
+    });
+
     return () => {
       listeners.delete(sync);
+      if (unsubscribe) unsubscribe();
     };
   }, [sync]);
 
   return session;
 }
+
+

@@ -311,11 +311,23 @@ export const getCounsellorPortalData = createServerFn({ method: "GET" })
   .inputValidator((input: { counsellorEmail: string }) => ({
     counsellorEmail: normalizeEmail(input?.counsellorEmail),
   }))
-  .handler(async ({ data }): Promise<PortalData> => {
-    if (!data.counsellorEmail) return { sessions: [], students: [], studentSourceError: null };
+  .handler(async ({ request }): Promise<PortalData> => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role && authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const targetEmail = authCtx.user.email;
+    if (!targetEmail) return { sessions: [], students: [], studentSourceError: null };
 
     const { sessions: all, error: sessionError } = await loadSessions();
-    const mine = all.filter((s) => s.counsellorEmail === data.counsellorEmail);
+    const mine = all.filter((s) => s.counsellorEmail === targetEmail);
 
     const unmatched = all.filter((s) => !s.counsellorEmail);
     if (unmatched.length > 0) {
@@ -332,7 +344,18 @@ export const getCounsellorPortalData = createServerFn({ method: "GET" })
 
 /** Every session and student — Super Admin scope. */
 export const getAdminPortalData = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PortalData> => {
+  async ({ request }): Promise<PortalData> => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Super Admin privileges required.");
+    }
+
     const { sessions, error: sessionError } = await loadSessions();
     const { profiles, error } = await loadStudentProfiles();
 
@@ -365,7 +388,6 @@ export const getAdminPortalData = createServerFn({ method: "GET" }).handler(
       students,
       studentSourceError: sessionError ?? error,
     };
-
   },
 );
 
@@ -374,17 +396,31 @@ export const getStudentPortalData = createServerFn({ method: "GET" })
   .inputValidator((input: { studentEmail: string }) => ({
     studentEmail: normalizeEmail(input?.studentEmail),
   }))
-  .handler(async ({ data }): Promise<PortalData> => {
-    if (!data.studentEmail) return { sessions: [], students: [], studentSourceError: null };
+  .handler(async ({ request }): Promise<PortalData> => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role && authCtx.role !== "student" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Student access required.");
+    }
+
+    const targetEmail = authCtx.user.email;
+    if (!targetEmail) return { sessions: [], students: [], studentSourceError: null };
+
     const { sessions: all, error: sessionError } = await loadSessions();
-    const mine = all.filter((s) => s.studentEmail === data.studentEmail);
+    const mine = all.filter((s) => s.studentEmail === targetEmail);
     const { profiles, error } = await loadStudentProfiles();
     const profile =
-      profiles.get(data.studentEmail) ??
-      placeholderProfile(data.studentEmail, mine[0]?.studentName ?? "");
+      profiles.get(targetEmail) ?? placeholderProfile(targetEmail, mine[0]?.studentName ?? "");
     return {
       sessions: mine,
       students: [profile],
       studentSourceError: sessionError ?? error,
     };
   });
+
+
