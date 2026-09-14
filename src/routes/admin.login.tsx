@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { PortalLogin } from "@/components/portal/PortalShell";
-import { signInSuperAdmin } from "@/lib/portal-auth";
+import { syncTokenCookie } from "@/lib/portal-auth";
 
 const title = "Super Admin Login — APEX Global Education Portal";
 const description = "Secure sign-in for APEX Global Education super administrators.";
@@ -25,9 +25,35 @@ function AdminLoginPage() {
     <PortalLogin
       title="Super Admin Sign In"
       subtitle="Access the APEX operations portal."
-      onSubmit={(email, password) => {
-        const session = signInSuperAdmin(email, password);
-        if (!session) return false;
+      onSubmit={async (email, password) => {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data: sbData, error: sbError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (sbError || !sbData.session || !sbData.user) {
+          return false;
+        }
+
+        syncTokenCookie(sbData.session.access_token);
+
+        let role: string | null = (sbData.user.user_metadata?.role as string) || null;
+        if (!role) {
+          const { data: roleRow } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", sbData.user.id)
+            .maybeSingle();
+          role = roleRow?.role ?? null;
+        }
+
+        if (role !== "super_admin") {
+          syncTokenCookie(null);
+          await supabase.auth.signOut();
+          throw new Error("Access denied: Super Admin privileges required.");
+        }
+
         navigate({ to: "/admin/dashboard", replace: true });
         return true;
       }}
@@ -39,3 +65,4 @@ function AdminLoginPage() {
     />
   );
 }
+

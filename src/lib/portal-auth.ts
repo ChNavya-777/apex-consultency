@@ -280,6 +280,23 @@ export function resetCounsellorPassword(email: string) {
   counsellorPasswords[email.toLowerCase()] = "123456";
 }
 
+async function resolveRole(user: { id: string; user_metadata?: Record<string, unknown> }): Promise<PortalRole> {
+  const metaRole = user.user_metadata?.role as PortalRole | undefined;
+  if (metaRole) return metaRole;
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (data?.role) return data.role as PortalRole;
+  } catch {
+    /* ignore */
+  }
+  return "student";
+}
+
 /** `undefined` while the browser session is still being read. */
 export function useSession(): PortalSession | null | undefined {
   const [session, setSession] = useState<PortalSession | null | undefined>(undefined);
@@ -287,11 +304,11 @@ export function useSession(): PortalSession | null | undefined {
   const sync = useCallback(() => {
     import("@/integrations/supabase/client")
       .then(({ supabase }) => supabase.auth.getSession())
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data.session?.user) {
           syncTokenCookie(data.session.access_token);
           const user = data.session.user;
-          const role = (user.user_metadata?.role as PortalRole) || "student";
+          const role = await resolveRole(user);
           setSession({
             role,
             name: (user.user_metadata?.full_name as string) || user.email || "",
@@ -320,11 +337,11 @@ export function useSession(): PortalSession | null | undefined {
 
     let unsubscribe: (() => void) | undefined;
     import("@/integrations/supabase/client").then(({ supabase }) => {
-      const { data } = supabase.auth.onAuthStateChange((_event, sbSession) => {
+      const { data } = supabase.auth.onAuthStateChange(async (_event, sbSession) => {
         if (sbSession?.user) {
           syncTokenCookie(sbSession.access_token);
           const user = sbSession.user;
-          const role = (user.user_metadata?.role as PortalRole) || "student";
+          const role = await resolveRole(user);
           setSession({
             role,
             name: (user.user_metadata?.full_name as string) || user.email || "",
