@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, Compass, UserRound } from "lucide-react";
+import { CalendarDays, CalendarPlus, Compass, UserRound } from "lucide-react";
 import { useMemo } from "react";
 import {
   JourneyProgress,
@@ -110,7 +110,15 @@ function StudentDashboardPage() {
           ) : (
             <SessionEmptyState
               title="No upcoming consultation"
-              text="Your scheduled consultation will appear here once your booking is confirmed."
+              text="Ready to speak with our counselling team?"
+              action={
+                <Link
+                  to="/consultation"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-blue px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-brand-blue/90"
+                >
+                  <CalendarPlus className="h-4 w-4" /> Book a Consultation
+                </Link>
+              }
             />
           )}
         </StudentCard>

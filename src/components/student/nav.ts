@@ -9,9 +9,11 @@ export const studentNav: StudentNavItem[][] = [
     { label: "My Applications", to: "/student/applications", icon: "GraduationCap" },
     { label: "My Documents", to: "/student/documents", icon: "FolderOpen" },
     { label: "Notifications", to: "/student/notifications", icon: "Bell" },
+    { label: "Book a Consultation", to: "/consultation", icon: "CalendarPlus", isCta: true },
   ],
   [
     { label: "Help & Support", to: "/student/settings", hash: "help", icon: "LifeBuoy" },
     { label: "Settings", to: "/student/settings", icon: "Settings" },
   ],
 ];
+

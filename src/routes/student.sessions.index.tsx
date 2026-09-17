@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { CalendarPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { StudentHeading, StudentLayout, useRequireStudent } from "@/components/student/StudentShell";
 import { studentNav } from "@/components/student/nav";
@@ -83,7 +84,21 @@ function StudentSessionsPage() {
                 ? "No upcoming consultations"
                 : "No completed consultations"
           }
-          text="Your scheduled consultations will appear here once your booking is confirmed."
+          text={
+            tab === "Upcoming" && !isLoading
+              ? "Ready to speak with our counselling team?"
+              : "Your scheduled consultations will appear here once your booking is confirmed."
+          }
+          action={
+            tab === "Upcoming" && !isLoading ? (
+              <Link
+                to="/consultation"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-blue px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-brand-blue/90"
+              >
+                <CalendarPlus className="h-4 w-4" /> Book a Consultation
+              </Link>
+            ) : undefined
+          }
         />
       ) : (
         <div className="space-y-3">

@@ -3,6 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
   CalendarDays,
+  CalendarPlus,
   CheckCircle2,
   Circle,
   Clock,
@@ -58,6 +59,7 @@ const icons: Record<string, LucideIcon> = {
   LayoutDashboard,
   UserRound,
   CalendarDays,
+  CalendarPlus,
   GraduationCap,
   FolderOpen,
   Bell,
@@ -70,6 +72,7 @@ export type StudentNavItem = {
   to: string;
   hash?: string;
   icon?: keyof typeof icons | string;
+  isCta?: boolean;
 };
 
 export function StudentSidebar({
@@ -111,13 +114,22 @@ export function StudentSidebar({
                       {...(item.hash ? { hash: item.hash } : {})}
                       onClick={onNavigate}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                        active
-                          ? "bg-brand-blue/10 text-brand-blue"
-                          : "text-muted-foreground hover:bg-surface hover:text-foreground",
+                        "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors",
+                        item.isCta
+                          ? "bg-brand-blue font-semibold text-primary-foreground shadow-sm hover:bg-brand-blue/90"
+                          : active
+                            ? "bg-brand-blue/10 font-semibold text-brand-blue"
+                            : "text-muted-foreground hover:bg-surface hover:text-foreground",
                       )}
                     >
-                      {Icon && <Icon className="h-[18px] w-[18px] shrink-0" />}
+                      {Icon && (
+                        <Icon
+                          className={cn(
+                            "h-[18px] w-[18px] shrink-0",
+                            item.isCta ? "text-primary-foreground" : "",
+                          )}
+                        />
+                      )}
                       {item.label}
                     </Link>
                   </li>
@@ -304,11 +316,13 @@ export function EmptyState({
   title,
   text,
   icon,
+  action,
   className,
 }: {
   title: string;
   text?: string;
   icon?: LucideIcon;
+  action?: ReactNode;
   className?: string;
 }) {
   const Icon = icon;
@@ -326,6 +340,7 @@ export function EmptyState({
       )}
       <p className="font-display text-base font-semibold text-foreground">{title}</p>
       {text && <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{text}</p>}
+      {action && <div className="mt-5 flex justify-center">{action}</div>}
     </div>
   );
 }
@@ -333,11 +348,13 @@ export function EmptyState({
 export function SessionEmptyState({
   title = "No upcoming consultation",
   text = "Your scheduled consultation will appear here once your booking is confirmed.",
+  action,
 }: {
   title?: string;
   text?: string;
+  action?: ReactNode;
 }) {
-  return <EmptyState icon={CalendarDays} title={title} text={text} />;
+  return <EmptyState icon={CalendarDays} title={title} text={text} action={action} />;
 }
 
 /* ------------------------------------------------------------------ */
