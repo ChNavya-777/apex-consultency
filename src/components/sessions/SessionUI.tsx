@@ -6,15 +6,19 @@
  */
 
 import type { ReactNode } from "react";
-import { CalendarDays, Video } from "lucide-react";
+import { CalendarDays, CheckCircle2, Video, XCircle } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import {
+  canRecordSessionOutcome,
+  isSessionCancelled,
   isValidMeetingUrl,
   sessionDateLabel,
   sessionSlot,
   sessionStatusLabels,
   sessionTimeLabel,
   type ConsultationSession,
+  type CounsellorOutcome,
   type SessionStatus,
 } from "@/lib/sessions";
 
@@ -27,7 +31,8 @@ const statusStyles: Record<SessionStatus, string> = {
   in_progress: "bg-gold/20 text-gold-deep",
   completed: "bg-emerald-500/10 text-emerald-700",
   cancelled: "bg-destructive/10 text-destructive",
-  no_show: "bg-muted text-muted-foreground",
+  no_show: "bg-amber-500/10 text-amber-700",
+  awaiting_outcome: "bg-purple-500/10 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300",
 };
 
 export function SessionStatusBadge({ status }: { status?: SessionStatus | undefined }) {
@@ -412,10 +417,12 @@ export function SessionDetail({
   session,
   audience,
   studentAction,
+  outcomeAction,
 }: {
   session: ConsultationSession;
   audience: "admin" | "counsellor" | "student";
   studentAction?: ReactNode;
+  outcomeAction?: ReactNode;
 }) {
   return (
     <div className="space-y-5">
@@ -424,6 +431,23 @@ export function SessionDetail({
           {session.sessionName && <DetailRow label="Session" value={session.sessionName} />}
           <DetailRow label="Booking UID" value={session.bookingUid} />
           <DetailRow label="Session Status" value={<SessionStatusBadge status={session.status} />} />
+          {session.counsellorOutcome && (
+            <DetailRow
+              label="Counsellor Outcome"
+              value={
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    session.counsellorOutcome === "completed"
+                      ? "bg-emerald-500/10 text-emerald-700"
+                      : "bg-amber-500/10 text-amber-700",
+                  )}
+                >
+                  {session.counsellorOutcome === "completed" ? "Completed" : "Missed"}
+                </span>
+              }
+            />
+          )}
           {session.bookingStatus && (
             <DetailRow label="Booking Status" value={session.bookingStatus} />
           )}
@@ -432,6 +456,18 @@ export function SessionDetail({
           )}
         </dl>
       </SessionDetailSection>
+
+      {session.counsellorOutcome && session.counsellorNotes && (
+        <SessionDetailSection title="Counsellor Session Notes">
+          <p className="whitespace-pre-wrap text-sm text-foreground">{session.counsellorNotes}</p>
+        </SessionDetailSection>
+      )}
+
+      {outcomeAction && (
+        <SessionDetailSection title="Session Outcome">
+          {outcomeAction}
+        </SessionDetailSection>
+      )}
 
       {audience !== "student" && (
         <SessionDetailSection title="Student">
@@ -516,6 +552,94 @@ export function SessionDetail({
           <MeetingButton url={session.meetingUrl} />
         </SessionDetailSection>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Counsellor card outcome action buttons                             */
+/* ------------------------------------------------------------------ */
+
+export function CounsellorOutcomeActions({
+  session,
+  onOpenOutcome,
+  showViewStudent = false,
+}: {
+  session: ConsultationSession;
+  onOpenOutcome?: (s: ConsultationSession, outcome: CounsellorOutcome) => void;
+  showViewStudent?: boolean;
+}) {
+  const isCancelled = isSessionCancelled(session);
+  const isRescheduled = !!session.rescheduled;
+  const outcome = session.counsellorOutcome;
+
+  const canMutate = canRecordSessionOutcome(session);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {canMutate && onOpenOutcome && (
+        <>
+          <button
+            type="button"
+            onClick={() => onOpenOutcome(session, "completed")}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 shadow-sm"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Completed
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenOutcome(session, "missed")}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-amber-700 shadow-sm"
+          >
+            <XCircle className="h-4 w-4" />
+            Missed
+          </button>
+        </>
+      )}
+
+      {outcome === "completed" && (
+        <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-700">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Completed
+        </span>
+      )}
+
+      {outcome === "missed" && (
+        <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-amber-500/10 px-3 text-xs font-semibold text-amber-700">
+          <XCircle className="h-4 w-4 text-amber-600" /> Missed
+        </span>
+      )}
+
+      {!outcome && isRescheduled && (
+        <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-amber-500/10 px-3 text-xs font-semibold text-amber-700">
+          Session Rescheduled
+        </span>
+      )}
+
+      {!outcome && isCancelled && (
+        <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-destructive/10 px-3 text-xs font-semibold text-destructive">
+          Cancelled
+        </span>
+      )}
+
+      <Link
+        to="/counsellor/sessions/$id"
+        params={{ id: session.bookingUid }}
+        className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+      >
+        View details
+      </Link>
+
+      {showViewStudent && (
+        <Link
+          to="/counsellor/students"
+          className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+        >
+          View Student
+        </Link>
+      )}
+
+      <MeetingButton url={session.meetingUrl} size="sm" />
     </div>
   );
 }

@@ -1,9 +1,17 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { EmptyState, PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { counsellorNav } from "@/components/portal/nav";
-import { MeetingButton, SessionCard, SessionEmptyState } from "@/components/sessions/SessionUI";
-import { isSessionToday, isSessionUpcoming } from "@/lib/sessions";
-import type { ConsultationSession } from "@/lib/sessions";
+import { CounsellorOutcomeActions, SessionCard, SessionEmptyState } from "@/components/sessions/SessionUI";
+import { SessionOutcomeModal } from "@/components/sessions/SessionOutcomeModal";
+import {
+  isSessionAwaitingOutcome,
+  isSessionCancelled,
+  isSessionToday,
+  isSessionUpcoming,
+  type CounsellorOutcome,
+  type ConsultationSession,
+} from "@/lib/sessions";
 import { useCounsellorPortalData } from "@/lib/use-portal-data";
 import { StudentTable } from "@/components/portal/StudentTable";
 
@@ -25,6 +33,9 @@ export const Route = createFileRoute("/counsellor/dashboard")({
 
 function CounsellorDashboardPage() {
   const session = useRequireRole("counsellor");
+  const [activeSession, setActiveSession] = useState<ConsultationSession | null>(null);
+  const [targetOutcome, setTargetOutcome] = useState<CounsellorOutcome | null>(null);
+
   /** Scoped on the server to this counsellor's login email only. */
   const { data, isLoading } = useCounsellorPortalData(session?.email);
   if (!session) return null;
@@ -32,8 +43,14 @@ function CounsellorDashboardPage() {
   const firstName = session.name.split(" ")[0] ?? session.name;
 
   const mine = data.sessions;
-  const today = mine.filter((s) => isSessionToday(s) && isSessionUpcoming(s));
+  const awaitingOutcome = mine.filter((s) => isSessionAwaitingOutcome(s));
+  const today = mine.filter((s) => isSessionToday(s) && !isSessionCancelled(s) && !s.rescheduled);
   const upcoming = mine.filter((s) => isSessionUpcoming(s));
+
+  const handleOpenOutcome = (s: ConsultationSession, outcome: CounsellorOutcome) => {
+    setActiveSession(s);
+    setTargetOutcome(outcome);
+  };
 
   return (
     <PortalLayout session={session} nav={counsellorNav}>
@@ -50,6 +67,20 @@ function CounsellorDashboardPage() {
         }
       />
 
+      {awaitingOutcome.length > 0 && (
+        <section className="mb-8 rounded-2xl border border-amber-200 bg-amber-50/50 p-5 dark:border-amber-900/40 dark:bg-amber-950/20">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold text-amber-900 dark:text-amber-300">
+              Awaiting Outcome ({awaitingOutcome.length})
+            </h2>
+            <span className="text-xs text-amber-800 dark:text-amber-400">
+              Please record outcomes for completed consultations.
+            </span>
+          </div>
+          <SessionList sessions={awaitingOutcome} onOpenOutcome={handleOpenOutcome} />
+        </section>
+      )}
+
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-foreground">
           Today&apos;s Sessions
@@ -60,7 +91,7 @@ function CounsellorDashboardPage() {
             text="Sessions booked with you for today will appear here."
           />
         ) : (
-          <SessionList sessions={today} />
+          <SessionList sessions={today} onOpenOutcome={handleOpenOutcome} />
         )}
       </section>
 
@@ -74,7 +105,7 @@ function CounsellorDashboardPage() {
             text="Consultations booked with you will appear here."
           />
         ) : (
-          <SessionList sessions={upcoming} />
+          <SessionList sessions={upcoming} onOpenOutcome={handleOpenOutcome} />
         )}
       </section>
 
@@ -89,11 +120,29 @@ function CounsellorDashboardPage() {
           <StudentTable students={data.students} note={data.studentSourceError} />
         )}
       </section>
+
+      {activeSession && targetOutcome && (
+        <SessionOutcomeModal
+          session={activeSession}
+          targetOutcome={targetOutcome}
+          isOpen={!!activeSession && !!targetOutcome}
+          onClose={() => {
+            setActiveSession(null);
+            setTargetOutcome(null);
+          }}
+        />
+      )}
     </PortalLayout>
   );
 }
 
-function SessionList({ sessions }: { sessions: ConsultationSession[] }) {
+function SessionList({
+  sessions,
+  onOpenOutcome,
+}: {
+  sessions: ConsultationSession[];
+  onOpenOutcome: (session: ConsultationSession, outcome: CounsellorOutcome) => void;
+}) {
   return (
     <div className="space-y-3">
       {sessions.map((s) => (
@@ -101,16 +150,10 @@ function SessionList({ sessions }: { sessions: ConsultationSession[] }) {
           key={s.bookingUid}
           session={s}
           actions={
-            <>
-              <Link
-                to="/counsellor/sessions/$id"
-                params={{ id: s.bookingUid }}
-                className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
-              >
-                View details
-              </Link>
-              <MeetingButton url={s.meetingUrl} size="sm" />
-            </>
+            <CounsellorOutcomeActions
+              session={s}
+              onOpenOutcome={onOpenOutcome}
+            />
           }
         />
       ))}

@@ -11,14 +11,22 @@
  * the UI renders honest empty states until the real source is connected.
  */
 
-export type SessionStatus = "upcoming" | "in_progress" | "completed" | "cancelled" | "no_show";
+export type SessionStatus = "upcoming" | "in_progress" | "completed" | "cancelled" | "no_show" | "awaiting_outcome";
 
 export const sessionStatusLabels: Record<SessionStatus, string> = {
   upcoming: "Upcoming",
   in_progress: "In Progress",
   completed: "Completed",
   cancelled: "Cancelled",
-  no_show: "No Show",
+  no_show: "Missed",
+  awaiting_outcome: "Awaiting Outcome",
+};
+
+export type CounsellorOutcome = "completed" | "missed";
+
+export const counsellorOutcomeLabels: Record<CounsellorOutcome, string> = {
+  completed: "Completed",
+  missed: "Missed",
 };
 
 export type ConsultationSession = {
@@ -38,6 +46,11 @@ export type ConsultationSession = {
    * an ID, `studentEmail` is the temporary fallback (see `sessionBelongsToStudent`).
    */
   studentId?: string | null;
+
+  /* --- Counsellor Manual Outcome fields --- */
+  counsellorOutcome?: CounsellorOutcome | null;
+  counsellorNotes?: string | null;
+  outcomeUpdatedAt?: string | null;
 
   /* --- Booking Sheet fields (optional: older readers don't set them) --- */
   /** Booking Sheet `counsellor_email` — the counsellor assignment key. */
@@ -245,16 +258,59 @@ export function isSessionToday(session: ConsultationSession, reference = new Dat
   return formatDateIn(start, tz) === formatDateIn(reference, tz);
 }
 
-/** Active (not cancelled) and still in the future. */
-export function isSessionUpcoming(session: ConsultationSession, reference = new Date()): boolean {
-  if (isSessionCancelled(session) || session.rescheduled) return false;
-  const end = slotEnd(session);
-  return !!end && end.getTime() >= reference.getTime();
+/** True only when session has no outcome, is not cancelled/rescheduled, and scheduled END time has passed. */
+export function canRecordSessionOutcome(session: ConsultationSession, reference = new Date()): boolean {
+  if (isSessionCancelled(session) || session.rescheduled || !!session.counsellorOutcome) {
+    return false;
+  }
+  const { end } = sessionSlot(session);
+  return !!end && reference.getTime() >= end.getTime();
 }
 
-/** Actually occurred: not cancelled and its slot has passed. */
-export function isSessionCompleted(session: ConsultationSession, reference = new Date()): boolean {
+/** True only for sessions whose START time is still in the future. */
+export function isSessionUpcoming(session: ConsultationSession, reference = new Date()): boolean {
+  if (isSessionCancelled(session) || session.rescheduled || !!session.counsellorOutcome) {
+    return false;
+  }
+  const { start } = sessionSlot(session);
+  return !!start && start.getTime() > reference.getTime();
+}
+
+/** True when current time is between session start and end time. */
+export function isSessionInProgress(session: ConsultationSession, reference = new Date()): boolean {
+  if (isSessionCancelled(session) || session.rescheduled || !!session.counsellorOutcome) {
+    return false;
+  }
+  const { start, end } = sessionSlot(session);
+  const nowMs = reference.getTime();
+  return !!start && !!end && nowMs >= start.getTime() && nowMs < end.getTime();
+}
+
+/** True when session END time has passed but counsellor has not yet recorded an outcome. */
+export function isSessionAwaitingOutcome(session: ConsultationSession, reference = new Date()): boolean {
+  return canRecordSessionOutcome(session, reference);
+}
+
+/** True ONLY when counsellor explicitly chose an outcome (completed or missed). */
+export function isSessionCompleted(session: ConsultationSession): boolean {
   if (isSessionCancelled(session) || session.rescheduled) return false;
-  const end = slotEnd(session);
-  return !!end && end.getTime() < reference.getTime();
+  return session.counsellorOutcome === "completed" || session.counsellorOutcome === "missed";
+}
+
+/** Returns the exact display status for a session. */
+export function getSessionStatus(session: ConsultationSession, reference = new Date()): SessionStatus {
+  if (isSessionCancelled(session)) return "cancelled";
+  if (session.counsellorOutcome === "missed") return "no_show";
+  if (session.counsellorOutcome === "completed") return "completed";
+
+  const { start, end } = sessionSlot(session);
+  const nowMs = reference.getTime();
+
+  if (end && nowMs >= end.getTime()) {
+    return "awaiting_outcome";
+  }
+  if (start && end && nowMs >= start.getTime() && nowMs < end.getTime()) {
+    return "in_progress";
+  }
+  return "upcoming";
 }

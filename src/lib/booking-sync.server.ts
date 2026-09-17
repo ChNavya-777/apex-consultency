@@ -225,6 +225,9 @@ export async function syncBookingsToSupabase(): Promise<BookingSyncReport> {
         end_time: booking.endIso,
         rescheduled: booking.rescheduled,
         status: booking.cancelled ? "cancelled" : null,
+        counsellor_outcome: existing?.counsellor_outcome ?? null,
+        counsellor_notes: existing?.counsellor_notes ?? null,
+        outcome_updated_at: existing?.outcome_updated_at ?? null,
       };
 
       const existing = existingByUid.get(booking.bookingUid);
@@ -306,6 +309,11 @@ export async function syncBookingsToSupabase(): Promise<BookingSyncReport> {
     }
 
     report.ok = true;
+    if (report.inserted > 0 || report.updated > 0 || report.questionsWritten > 0) {
+      const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+      invalidatePortalCache();
+    }
+
     if (report.skippedUnmatchedStudent.length > 0) {
       console.warn(
         `Booking sync: ${report.skippedUnmatchedStudent.length} booking(s) skipped — student not in Supabase: ${[

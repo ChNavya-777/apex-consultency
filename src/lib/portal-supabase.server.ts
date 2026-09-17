@@ -13,7 +13,7 @@
  */
 
 import { normalizeEmail } from "@/lib/counsellor-roster";
-import type { ConsultationSession, SessionStatus } from "@/lib/sessions";
+import type { ConsultationSession, CounsellorOutcome, SessionStatus } from "@/lib/sessions";
 import type { StudentProfile } from "@/lib/portal-data";
 
 const CACHE_TTL_MS = 60_000;
@@ -41,14 +41,16 @@ function iso(value: string | null): string {
   return Number.isNaN(d.getTime()) ? value : d.toISOString();
 }
 
-/** Same classification the portal has always used: cancelled/rescheduled first, then elapsed. */
+/** Same classification the portal has always used: cancelled/rescheduled first, explicit outcome, then elapsed. */
 function classify(row: {
   booking_status: string | null;
   invitee_status: string | null;
   booking_event: string | null;
   status: string | null;
   rescheduled: boolean | null;
+  start_time: string | null;
   end_time: string | null;
+  counsellor_outcome?: string | null;
 }): { status: SessionStatus | undefined; rescheduled: boolean } {
   const booking = (row.booking_status ?? "").toLowerCase();
   const invitee = (row.invitee_status ?? "").toLowerCase();
@@ -64,9 +66,23 @@ function classify(row: {
     event.includes("cancel");
 
   if (cancelled) return { status: "cancelled", rescheduled };
+
+  // Explicit counsellor outcome precedence
+  const outcome = (row.counsellor_outcome ?? "").toLowerCase();
+  if (outcome === "missed") return { status: "no_show", rescheduled };
+  if (outcome === "completed") return { status: "completed", rescheduled };
+
+  const start = row.start_time ? new Date(row.start_time).getTime() : Number.NaN;
   const end = row.end_time ? new Date(row.end_time).getTime() : Number.NaN;
-  if (Number.isNaN(end)) return { status: undefined, rescheduled };
-  return { status: end < Date.now() ? "completed" : "upcoming", rescheduled };
+  const now = Date.now();
+
+  if (!Number.isNaN(end) && now >= end) {
+    return { status: "awaiting_outcome", rescheduled };
+  }
+  if (!Number.isNaN(start) && !Number.isNaN(end) && now >= start && now < end) {
+    return { status: "in_progress", rescheduled };
+  }
+  return { status: "upcoming", rescheduled };
 }
 
 /** Readable submission timestamp in the source timezone the form used (Asia/Kolkata). */
@@ -156,6 +172,9 @@ async function fetchSnapshot(): Promise<Snapshot> {
       questionsAndAnswers: questionsBySession.get(row.id) ?? [],
       rescheduled,
       status,
+      counsellorOutcome: (row.counsellor_outcome as CounsellorOutcome) || null,
+      counsellorNotes: row.counsellor_notes ?? null,
+      outcomeUpdatedAt: iso(row.outcome_updated_at),
       meetingUrl: null,
     };
   });
@@ -247,3 +266,9 @@ export async function readPortalSnapshot(): Promise<Snapshot> {
   inFlight.set(KEY, promise);
   return promise;
 }
+
+/** Invalidate the cached portal snapshot so subsequent reads fetch fresh data immediately. */
+export function invalidatePortalCache(): void {
+  cache.delete(KEY);
+}
+

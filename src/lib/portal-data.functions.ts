@@ -423,4 +423,127 @@ export const getStudentPortalData = createServerFn({ method: "GET" })
     };
   });
 
+export type UpdateSessionOutcomeInput = {
+  bookingUid: string;
+  outcome: "completed" | "missed";
+  notes?: string | null;
+};
+
+export type UpdateSessionOutcomeResponse = {
+  success: boolean;
+  bookingUid: string;
+  counsellorOutcome: "completed" | "missed";
+  counsellorNotes: string | null;
+  outcomeUpdatedAt: string;
+};
+
+/** Secure server-side function for recording counsellor session outcomes. */
+export const updateSessionOutcome = createServerFn({ method: "POST" })
+  .inputValidator((input: UpdateSessionOutcomeInput) => {
+    const bookingUid = String(input?.bookingUid ?? "").trim();
+    const outcome = String(input?.outcome ?? "").trim().toLowerCase();
+    const rawNotes = input?.notes != null ? String(input.notes) : null;
+
+    if (!bookingUid) {
+      throw new Error("400 Bad Request: bookingUid is required.");
+    }
+
+    if (outcome !== "completed" && outcome !== "missed") {
+      throw new Error(
+        "400 Bad Request: Invalid outcome. Allowed values are 'completed' or 'missed'.",
+      );
+    }
+
+    if (rawNotes && rawNotes.length > 2000) {
+      throw new Error("400 Bad Request: Notes exceed maximum length of 2000 characters.");
+    }
+
+    return {
+      bookingUid,
+      outcome: outcome as "completed" | "missed",
+      notes: rawNotes ? rawNotes.trim() : null,
+    };
+  })
+  .handler(async ({ data, request }): Promise<UpdateSessionOutcomeResponse> => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor or Super Admin privileges required.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Load actual session from Supabase
+    const { data: rows, error: fetchError } = await supabaseAdmin
+      .from("sessions")
+      .select("id, booking_uid, counsellor_email, counsellor_id")
+      .eq("booking_uid", data.bookingUid)
+      .limit(1);
+
+    if (fetchError) {
+      console.error(`Session fetch failed for ${data.bookingUid}:`, fetchError.message);
+      throw new Error(`500 Internal Server Error: Database lookup failed (${fetchError.message}).`);
+    }
+
+    const session = rows?.[0];
+    if (!session) {
+      throw new Error(`404 Not Found: Session '${data.bookingUid}' does not exist.`);
+    }
+
+    // Verify authorized counsellor (counsellor MUST match assigned counsellor_email or counsellor_id; super_admin can update any)
+    if (authCtx.role === "counsellor") {
+      const authEmail = normalizeEmail(authCtx.user.email);
+      let assignedEmail = normalizeEmail(session.counsellor_email);
+
+      // Fallback: if counsellor_email on session is null/empty, check counsellor_id in counsellors table
+      if (!assignedEmail && session.counsellor_id) {
+        const { data: cRow } = await supabaseAdmin
+          .from("counsellors")
+          .select("email")
+          .eq("id", session.counsellor_id)
+          .maybeSingle();
+        if (cRow?.email) {
+          assignedEmail = normalizeEmail(cRow.email);
+        }
+      }
+
+      if (!authEmail || !assignedEmail || authEmail !== assignedEmail) {
+        throw new Error("403 Forbidden: You are not authorized to update this session.");
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const { error: updateError } = await supabaseAdmin
+      .from("sessions")
+      .update({
+        counsellor_outcome: data.outcome,
+        counsellor_notes: data.notes,
+        outcome_updated_at: nowIso,
+      })
+      .eq("id", session.id);
+
+    if (updateError) {
+      console.error(`Outcome update failed for ${data.bookingUid}:`, updateError.message);
+      throw new Error(`500 Internal Server Error: Failed to save session outcome (${updateError.message}).`);
+    }
+
+    // Invalidate 60-second snapshot cache so subsequent reads immediately reflect the new outcome
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return {
+      success: true,
+      bookingUid: data.bookingUid,
+      counsellorOutcome: data.outcome,
+      counsellorNotes: data.notes,
+      outcomeUpdatedAt: nowIso,
+    };
+  });
+
+
 

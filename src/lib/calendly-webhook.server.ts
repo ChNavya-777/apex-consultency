@@ -309,6 +309,9 @@ export async function processCalendlyWebhook(
     calendly_event_type_uri: booking.calendlyEventTypeUri || existing?.calendly_event_type_uri || null,
     calendly_location: booking.calendlyLocation || existing?.calendly_location || null,
     calendly_invitee_uri: booking.calendlyInviteeUri || existing?.calendly_invitee_uri || null,
+    counsellor_outcome: existing?.counsellor_outcome ?? null,
+    counsellor_notes: existing?.counsellor_notes ?? null,
+    outcome_updated_at: existing?.outcome_updated_at ?? null,
   };
 
   let sessionId: string;
@@ -375,9 +378,12 @@ export async function processCalendlyWebhook(
           position: index,
         })),
       );
-      if (insertedQs.error) throw new Error(insertedQs.error.message);
-      questionsWritten = wanted.length;
     }
+  }
+
+  if (kind !== "unchanged" || questionsWritten > 0) {
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
   }
 
   return { kind, bookingUid: booking.bookingUid, questionsWritten };

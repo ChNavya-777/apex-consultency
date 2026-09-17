@@ -1,9 +1,18 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { counsellorNav } from "@/components/portal/nav";
-import { SessionCard, SessionEmptyState, MeetingButton } from "@/components/sessions/SessionUI";
-import { isSessionCompleted, isSessionToday, isSessionUpcoming } from "@/lib/sessions";
+import { CounsellorOutcomeActions, SessionCard, SessionEmptyState } from "@/components/sessions/SessionUI";
+import { SessionOutcomeModal } from "@/components/sessions/SessionOutcomeModal";
+import {
+  isSessionAwaitingOutcome,
+  isSessionCancelled,
+  isSessionCompleted,
+  isSessionToday,
+  isSessionUpcoming,
+  type CounsellorOutcome,
+  type ConsultationSession,
+} from "@/lib/sessions";
 import { useCounsellorPortalData } from "@/lib/use-portal-data";
 import { cn } from "@/lib/utils";
 
@@ -23,24 +32,32 @@ export const Route = createFileRoute("/counsellor/sessions/")({
   component: CounsellorSessionsPage,
 });
 
-const tabs = ["Today", "Upcoming", "Completed"] as const;
+const tabs = ["Today", "Upcoming", "Awaiting Outcome", "Completed"] as const;
 
 function CounsellorSessionsPage() {
   const session = useRequireRole("counsellor");
   const [tab, setTab] = useState<(typeof tabs)[number]>("Today");
+  const [activeSession, setActiveSession] = useState<ConsultationSession | null>(null);
+  const [targetOutcome, setTargetOutcome] = useState<CounsellorOutcome | null>(null);
 
   /** Filtered on the server by the signed-in counsellor's login email. */
   const { data, isLoading } = useCounsellorPortalData(session?.email);
 
   const sessions = useMemo(() => {
     return data.sessions.filter((s) => {
-      if (tab === "Today") return isSessionToday(s) && isSessionUpcoming(s);
+      if (tab === "Today") return isSessionToday(s) && !isSessionCancelled(s) && !s.rescheduled;
       if (tab === "Upcoming") return isSessionUpcoming(s);
+      if (tab === "Awaiting Outcome") return isSessionAwaitingOutcome(s);
       return isSessionCompleted(s);
     });
   }, [data.sessions, tab]);
 
   if (!session) return null;
+
+  const handleOpenOutcome = (s: ConsultationSession, outcome: CounsellorOutcome) => {
+    setActiveSession(s);
+    setTargetOutcome(outcome);
+  };
 
   return (
     <PortalLayout session={session} nav={counsellorNav}>
@@ -83,27 +100,29 @@ function CounsellorSessionsPage() {
               key={s.bookingUid}
               session={s}
               actions={
-                <>
-                  <Link
-                    to="/counsellor/sessions/$id"
-                    params={{ id: s.bookingUid }}
-                    className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
-                  >
-                    View details
-                  </Link>
-                  <Link
-                    to="/counsellor/students"
-                    className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
-                  >
-                    View Student
-                  </Link>
-                  <MeetingButton url={s.meetingUrl} size="sm" />
-                </>
+                <CounsellorOutcomeActions
+                  session={s}
+                  onOpenOutcome={handleOpenOutcome}
+                  showViewStudent
+                />
               }
             />
           ))}
         </div>
       )}
+
+      {activeSession && targetOutcome && (
+        <SessionOutcomeModal
+          session={activeSession}
+          targetOutcome={targetOutcome}
+          isOpen={!!activeSession && !!targetOutcome}
+          onClose={() => {
+            setActiveSession(null);
+            setTargetOutcome(null);
+          }}
+        />
+      )}
     </PortalLayout>
   );
 }
+

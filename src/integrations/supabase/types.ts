@@ -118,12 +118,15 @@ export type Database = {
           counsellor_email: string | null
           counsellor_id: string | null
           counsellor_name: string | null
+          counsellor_notes: string | null
+          counsellor_outcome: string | null
           counsellor_user_uri: string | null
           created_at: string
           end_time: string | null
           event_uri: string | null
           id: string
           invitee_status: string | null
+          outcome_updated_at: string | null
           reschedule_url: string | null
           rescheduled: boolean | null
           session_name: string | null
@@ -145,12 +148,15 @@ export type Database = {
           counsellor_email?: string | null
           counsellor_id?: string | null
           counsellor_name?: string | null
+          counsellor_notes?: string | null
+          counsellor_outcome?: string | null
           counsellor_user_uri?: string | null
           created_at?: string
           end_time?: string | null
           event_uri?: string | null
           id?: string
           invitee_status?: string | null
+          outcome_updated_at?: string | null
           reschedule_url?: string | null
           rescheduled?: boolean | null
           session_name?: string | null
@@ -172,12 +178,15 @@ export type Database = {
           counsellor_email?: string | null
           counsellor_id?: string | null
           counsellor_name?: string | null
+          counsellor_notes?: string | null
+          counsellor_outcome?: string | null
           counsellor_user_uri?: string | null
           created_at?: string
           end_time?: string | null
           event_uri?: string | null
           id?: string
           invitee_status?: string | null
+          outcome_updated_at?: string | null
           reschedule_url?: string | null
           rescheduled?: boolean | null
           session_name?: string | null

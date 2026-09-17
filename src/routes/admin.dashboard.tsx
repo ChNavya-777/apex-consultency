@@ -3,9 +3,8 @@ import { ArrowRight } from "lucide-react";
 import { PortalHeading, PortalLayout, useRequireRole } from "@/components/portal/PortalShell";
 import { adminNav } from "@/components/portal/nav";
 import { MeetingButton, SessionCard, SessionEmptyState } from "@/components/sessions/SessionUI";
-import { isSessionToday, isSessionUpcoming } from "@/lib/sessions";
+import { isSessionCancelled, isSessionToday } from "@/lib/sessions";
 import { useAdminPortalData } from "@/lib/use-portal-data";
-
 
 const title = "Super Admin Dashboard — APEX Global Education Portal";
 const description = "Manage APEX Global Education operations from one place.";
@@ -41,7 +40,9 @@ function AdminDashboardPage() {
   if (!session) return null;
 
   /** All counsellors' sessions — Super Admin scope. */
-  const todaySessions = data.sessions.filter((s) => isSessionToday(s) && isSessionUpcoming(s));
+  const todaySessions = data.sessions.filter(
+    (s) => isSessionToday(s) && !isSessionCancelled(s) && !s.rescheduled,
+  );
 
   return (
     <PortalLayout session={session} nav={adminNav}>
