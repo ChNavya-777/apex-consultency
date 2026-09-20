@@ -17,7 +17,11 @@ export const counsellorRoster: RosterCounsellor[] = [
   { name: "Navya Ch", email: "chnavya0777@gmail.com", status: "Active" },
   { name: "Durga Navya", email: "durganavya76@gmail.com", status: "Active" },
   { name: "Vijay Joseph", email: "vijayjosephchinni367@gmail.com", status: "Active" },
+  { name: "Hlo Namaste", email: "hlonamaste123@gmail.com", status: "Active" },
+  { name: "apex apex", email: "apex998907@gmail.com", status: "Active" },
+  { name: "Joseph", email: "josephhh1845@gmail.com", status: "Active" },
 ];
+
 
 /** lowercase + trim — the only normalisation applied to any email in the system. */
 export function normalizeEmail(value: string | null | undefined): string {

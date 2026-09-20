@@ -71,6 +71,27 @@ export const initialCounsellors: Counsellor[] = [
     role: "Counsellor",
     status: "Active",
   },
+  {
+    id: "c5",
+    name: "Hlo Namaste",
+    email: "hlonamaste123@gmail.com",
+    role: "Counsellor",
+    status: "Active",
+  },
+  {
+    id: "c6",
+    name: "apex apex",
+    email: "apex998907@gmail.com",
+    role: "Counsellor",
+    status: "Active",
+  },
+  {
+    id: "c7",
+    name: "Joseph",
+    email: "josephhh1845@gmail.com",
+    role: "Counsellor",
+    status: "Active",
+  },
 ];
 
 const counsellorPasswords: Record<string, string> = {
@@ -78,7 +99,11 @@ const counsellorPasswords: Record<string, string> = {
   "durganavya76@gmail.com": "123456",
   "gooogle998907@gmail.com": "123456",
   "vijayjosephchinni367@gmail.com": "123456",
+  "hlonamaste123@gmail.com": "123456",
+  "apex998907@gmail.com": "123456",
+  "josephhh1845@gmail.com": "123456",
 };
+
 
 /* ------------------------------------------------------------------ */
 /* Counsellor store (local prototype state, persisted in the browser) */

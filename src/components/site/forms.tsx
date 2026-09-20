@@ -115,7 +115,8 @@ function SuccessPanel({ title, text }: { title: string; text: string }) {
 }
 
 /** APEX Calendly booking page (Session meeting — 1 hour, Round Robin). */
-const CALENDLY_BOOKING_URL = "https://calendly.com/d/dvxk-fqs-d9j/session-meeting";
+const CALENDLY_BOOKING_URL = "https://calendly.com/d/dv7g-9qs-dkq/new-meeting";
+
 
 function buildCalendlyUrl(name: string, email: string) {
   const url = new URL(CALENDLY_BOOKING_URL);
