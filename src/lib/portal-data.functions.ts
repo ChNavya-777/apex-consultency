@@ -545,5 +545,2094 @@ export const updateSessionOutcome = createServerFn({ method: "POST" })
     };
   });
 
+export type CounsellorStudentProfileResponse = {
+  student: StudentProfile | null;
+  sessions: ConsultationSession[];
+  tracking: {
+    currentTracking: import("@/lib/student-tracking").StudentTrackingState | null;
+    history: import("@/lib/student-tracking").TrackingHistoryItem[];
+  };
+  notes: import("@/lib/student-tracking").CounsellorStudentNote[];
+  documents: import("@/lib/student-documents").StudentDocument[];
+  tasks: import("@/lib/student-tasks").StudentTask[];
+  shortlists: import("@/lib/student-applications").StudentShortlist[];
+  applications: import("@/lib/student-applications").StudentApplication[];
+  authorized: boolean;
+  error: string | null;
+};
+
+/** Secure server-side function for retrieving an authorized counsellor student profile & history. */
+export const getCounsellorStudentProfileData = createServerFn({ method: "GET" })
+  .inputValidator((input: { studentId: string }) => ({
+    studentId: String(input?.studentId ?? "").trim(),
+  }))
+  .handler(async ({ data, request }): Promise<CounsellorStudentProfileResponse> => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { studentId } = data;
+    if (!studentId) {
+      return {
+        student: null,
+        sessions: [],
+        tracking: { currentTracking: null, history: [] },
+        notes: [],
+        documents: [],
+        tasks: [],
+        shortlists: [],
+        applications: [],
+        authorized: false,
+        error: "Student ID is required.",
+      };
+    }
+
+    const { sessions: allSessions, error: sessionError } = await loadSessions();
+    const { profiles, error: profileError } = await loadStudentProfiles();
+
+    let authorizedStudents: StudentProfile[] = [];
+    let authorizedSessions: ConsultationSession[] = [];
+
+    if (authCtx.role === "super_admin") {
+      authorizedSessions = allSessions;
+      authorizedStudents = compose(allSessions, profiles);
+      try {
+        const { readPortalSnapshot } = await import("@/lib/portal-supabase.server");
+        const { allStudents } = await readPortalSnapshot();
+        const seen = new Set(authorizedStudents.map((s) => s.email));
+        authorizedStudents = [
+          ...authorizedStudents,
+          ...allStudents.filter((s) => s.email && !seen.has(s.email)),
+        ];
+      } catch (e) {
+        console.error("Super Admin student profile query error:", e);
+      }
+    } else {
+      const targetEmail = authCtx.user.email;
+      authorizedSessions = allSessions.filter((s) => s.counsellorEmail === targetEmail);
+      authorizedStudents = compose(authorizedSessions, profiles);
+    }
+
+    const normalizedParam = decodeURIComponent(studentId).toLowerCase().trim();
+    const targetStudent =
+      authorizedStudents.find(
+        (s) =>
+          (s.id && s.id.toLowerCase() === normalizedParam) ||
+          s.email.toLowerCase() === normalizedParam ||
+          encodeURIComponent(s.email).toLowerCase() === normalizedParam,
+      ) ?? null;
+
+    if (!targetStudent) {
+      return {
+        student: null,
+        sessions: [],
+        tracking: { currentTracking: null, history: [] },
+        notes: [],
+        documents: [],
+        tasks: [],
+        shortlists: [],
+        applications: [],
+        authorized: false,
+        error: "Student profile not found or not assigned to you.",
+      };
+    }
+
+    const studentSessions = authorizedSessions.filter((s) => {
+      if (targetStudent.id && s.studentId) {
+        return s.studentId === targetStudent.id;
+      }
+      return s.studentEmail.toLowerCase() === targetStudent.email.toLowerCase();
+    });
+
+    let trackingData = {
+      currentTracking: {
+        studentId: targetStudent.id ?? "",
+        currentStage: "consultation" as const,
+        updatedByCounsellorId: null,
+        updatedByCounsellorName: null,
+        stageNotes: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      history: [],
+    };
+    let notesData: import("@/lib/student-tracking").CounsellorStudentNote[] = [];
+    let documentsData: import("@/lib/student-documents").StudentDocument[] = [];
+    let tasksData: import("@/lib/student-tasks").StudentTask[] = [];
+    let shortlistsData: import("@/lib/student-applications").StudentShortlist[] = [];
+    let applicationsData: import("@/lib/student-applications").StudentApplication[] = [];
+
+    if (targetStudent.id) {
+      try {
+        const {
+          fetchStudentTrackingData,
+          fetchStudentNotesData,
+          fetchStudentDocumentsData,
+          fetchStudentTasksData,
+          fetchStudentShortlistsData,
+          fetchStudentApplicationsData,
+        } = await import("@/lib/portal-supabase.server");
+        const [tr, nt, doc, tsk, sl, app] = await Promise.all([
+          fetchStudentTrackingData(targetStudent.id),
+          fetchStudentNotesData(targetStudent.id),
+          fetchStudentDocumentsData(targetStudent.id),
+          fetchStudentTasksData(targetStudent.id),
+          fetchStudentShortlistsData(targetStudent.id),
+          fetchStudentApplicationsData(targetStudent.id),
+        ]);
+        trackingData = tr;
+        notesData = nt;
+        documentsData = doc;
+        tasksData = tsk;
+        shortlistsData = sl;
+        applicationsData = app;
+      } catch (err) {
+        console.error("Failed to load tracking/notes/documents/tasks/applications data:", err);
+      }
+    }
+
+    return {
+      student: targetStudent,
+      sessions: studentSessions,
+      tracking: trackingData,
+      notes: notesData,
+      documents: documentsData,
+      tasks: tasksData,
+      shortlists: shortlistsData,
+      applications: applicationsData,
+      authorized: true,
+      error: sessionError ?? profileError,
+    };
+  });
+
+/** Helper to resolve or ensure a student ID exists in public.students table */
+async function resolveOrCreateStudentUuid(studentIdOrEmail: string): Promise<{
+  id: string;
+  email: string;
+} | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const normalizedParam = decodeURIComponent(studentIdOrEmail).toLowerCase().trim();
+
+  // 1. Try finding by UUID or email
+  const { data: existing } = await supabaseAdmin
+    .from("students")
+    .select("id, email")
+    .or(`id.eq.${normalizedParam},email.ilike.${normalizedParam}`)
+    .maybeSingle();
+
+  if (existing) {
+    return { id: existing.id, email: existing.email };
+  }
+
+  // 2. If it's an email string and doesn't exist yet, insert a row
+  if (normalizedParam.includes("@")) {
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from("students")
+      .insert({ email: normalizedParam })
+      .select("id, email")
+      .single();
+
+    if (!insertError && inserted) {
+      return { id: inserted.id, email: inserted.email };
+    }
+  }
+
+  return null;
+}
+
+export type UpdateTrackingInput = {
+  studentId: string;
+  newStage: string;
+  stageNotes?: string | null;
+};
+
+/** Server function to update a student's tracking stage and record transition history */
+export const updateStudentTracking = createServerFn({ method: "POST" })
+  .inputValidator((input: UpdateTrackingInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const newStage = String(input?.newStage ?? "").trim().toLowerCase();
+    const stageNotes = input?.stageNotes != null ? String(input.stageNotes).trim() : null;
+
+    if (!studentId) {
+      throw new Error("400 Bad Request: studentId is required.");
+    }
+
+    const { isValidStage } = require("@/lib/student-tracking");
+    if (!isValidStage(newStage)) {
+      throw new Error(`400 Bad Request: Invalid stage '${newStage}'.`);
+    }
+
+    return { studentId, newStage, stageNotes };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to update this student's tracking.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch existing tracking row
+    const { data: existingTracking } = await supabaseAdmin
+      .from("student_tracking")
+      .select("*")
+      .eq("student_id", resolvedStudent.id)
+      .maybeSingle();
+
+    const previousStage = existingTracking?.current_stage ?? null;
+    const isStageChanged = previousStage !== data.newStage;
+
+    // Fetch counsellor details for audit attribution
+    let counsellorId: string | null = null;
+    let counsellorName: string | null = authCtx.user.email;
+
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id, full_name")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+
+    if (cRow) {
+      counsellorId = cRow.id;
+      counsellorName = cRow.full_name || authCtx.user.email;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // Upsert student_tracking
+    const { error: upsertError } = await supabaseAdmin
+      .from("student_tracking")
+      .upsert({
+        student_id: resolvedStudent.id,
+        current_stage: data.newStage,
+        updated_by_counsellor_id: counsellorId,
+        updated_by_counsellor_name: counsellorName,
+        stage_notes: data.stageNotes,
+        updated_at: nowIso,
+      }, { onConflict: "student_id" });
+
+    if (upsertError) {
+      console.error(`Failed to update tracking for student ${resolvedStudent.id}:`, upsertError.message);
+      throw new Error(`500 Internal Server Error: ${upsertError.message}`);
+    }
+
+    // Record history ONLY if stage actually changed
+    if (isStageChanged) {
+      const { error: historyError } = await supabaseAdmin
+        .from("student_tracking_history")
+        .insert({
+          student_id: resolvedStudent.id,
+          stage: data.newStage,
+          previous_stage: previousStage,
+          changed_by_counsellor_id: counsellorId,
+          changed_by_counsellor_name: counsellorName,
+          notes: data.stageNotes,
+          created_at: nowIso,
+        });
+
+      if (historyError) {
+        console.error(`Failed to insert tracking history:`, historyError.message);
+      }
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return {
+      success: true,
+      currentStage: data.newStage,
+      updatedAt: nowIso,
+    };
+  });
+
+export type CreateNoteInput = {
+  studentId: string;
+  noteText: string;
+  category?: string;
+  isPinned?: boolean;
+};
+
+/** Server function to create a standalone counsellor note for a student */
+export const createStudentNote = createServerFn({ method: "POST" })
+  .inputValidator((input: CreateNoteInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const noteText = String(input?.noteText ?? "").trim();
+    const category = String(input?.category ?? "general").trim().toLowerCase();
+    const isPinned = Boolean(input?.isPinned);
+
+    if (!studentId) {
+      throw new Error("400 Bad Request: studentId is required.");
+    }
+    if (!noteText) {
+      throw new Error("400 Bad Request: noteText is required.");
+    }
+
+    return { studentId, noteText, category, isPinned };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to add notes for this student.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let counsellorId: string | null = null;
+    let counsellorName: string = authCtx.user.email;
+
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id, full_name")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+
+    if (cRow) {
+      counsellorId = cRow.id;
+      counsellorName = cRow.full_name || authCtx.user.email;
+    }
+
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from("counsellor_student_notes")
+      .insert({
+        student_id: resolvedStudent.id,
+        counsellor_id: counsellorId,
+        counsellor_name: counsellorName,
+        counsellor_email: authCtx.user.email,
+        note_text: data.noteText,
+        category: data.category,
+        is_pinned: data.isPinned,
+      })
+      .select("*")
+      .single();
+
+    if (insertError || !inserted) {
+      console.error("Failed to insert counsellor note:", insertError?.message);
+      throw new Error(`500 Internal Server Error: ${insertError?.message || "Insert failed"}`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return {
+      success: true,
+      note: {
+        id: inserted.id,
+        studentId: inserted.student_id,
+        counsellorId: inserted.counsellor_id,
+        counsellorName: inserted.counsellor_name,
+        counsellorEmail: inserted.counsellor_email,
+        noteText: inserted.note_text,
+        category: inserted.category as any,
+        isPinned: inserted.is_pinned,
+        createdAt: inserted.created_at,
+        updatedAt: inserted.updated_at,
+      },
+    };
+  });
+
+export type TogglePinNoteInput = {
+  noteId: string;
+  studentId: string;
+  isPinned: boolean;
+};
+
+/** Server function to pin or unpin a counsellor note */
+export const togglePinStudentNote = createServerFn({ method: "POST" })
+  .inputValidator((input: TogglePinNoteInput) => {
+    const noteId = String(input?.noteId ?? "").trim();
+    const studentId = String(input?.studentId ?? "").trim();
+    const isPinned = Boolean(input?.isPinned);
+
+    if (!noteId || !studentId) {
+      throw new Error("400 Bad Request: noteId and studentId are required.");
+    }
+
+    return { noteId, studentId, isPinned };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { error: updateError } = await supabaseAdmin
+      .from("counsellor_student_notes")
+      .update({ is_pinned: data.isPinned, updated_at: new Date().toISOString() })
+      .eq("id", data.noteId);
+
+    if (updateError) {
+      console.error(`Failed to update note ${data.noteId}:`, updateError.message);
+      throw new Error(`500 Internal Server Error: ${updateError.message}`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return { success: true, isPinned: data.isPinned };
+  });
+
+export type DeleteNoteInput = {
+  noteId: string;
+  studentId: string;
+};
+
+/** Server function to delete a counsellor note */
+export const deleteStudentNote = createServerFn({ method: "POST" })
+  .inputValidator((input: DeleteNoteInput) => {
+    const noteId = String(input?.noteId ?? "").trim();
+    const studentId = String(input?.studentId ?? "").trim();
+
+    if (!noteId || !studentId) {
+      throw new Error("400 Bad Request: noteId and studentId are required.");
+    }
+
+    return { noteId, studentId };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { error: deleteError } = await supabaseAdmin
+      .from("counsellor_student_notes")
+      .delete()
+      .eq("id", data.noteId);
+
+    if (deleteError) {
+      console.error(`Failed to delete note ${data.noteId}:`, deleteError.message);
+      throw new Error(`500 Internal Server Error: ${deleteError.message}`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return { success: true };
+  });
+
+/* ------------------------------------------------------------------ */
+/* Phase 3: Student Documents Server Functions                        */
+/* ------------------------------------------------------------------ */
+
+export type PrepareDocumentUploadInput = {
+  studentId: string;
+  filename: string;
+  fileSize: number;
+  mimeType: string;
+  category: string;
+};
+
+/** Server function to validate document metadata, insert a pending record, and create signed upload URL */
+export const prepareDocumentUpload = createServerFn({ method: "POST" })
+  .inputValidator((input: PrepareDocumentUploadInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const filename = String(input?.filename ?? "").trim();
+    const fileSize = Number(input?.fileSize ?? 0);
+    const mimeType = String(input?.mimeType ?? "").trim();
+    const category = String(input?.category ?? "other").trim().toLowerCase();
+
+    if (!studentId) {
+      throw new Error("400 Bad Request: studentId is required.");
+    }
+
+    const { validateDocumentFile } = require("@/lib/student-documents");
+    const valResult = validateDocumentFile(filename, mimeType, fileSize);
+    if (!valResult.valid) {
+      throw new Error(`400 Bad Request: ${valResult.error}`);
+    }
+
+    return { studentId, filename, fileSize, mimeType, category };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to upload documents for this student.");
+      }
+    }
+
+    const { sanitizeFilename } = await import("@/lib/student-documents");
+    const sanitizedName = sanitizeFilename(data.filename);
+    const documentId = crypto.randomUUID();
+    const storagePath = `students/${resolvedStudent.id}/${documentId}/${sanitizedName}`;
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch counsellor details for audit attribution
+    let counsellorId: string | null = null;
+    let counsellorName: string = authCtx.user.email;
+
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id, full_name")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+
+    if (cRow) {
+      counsellorId = cRow.id;
+      counsellorName = cRow.full_name || authCtx.user.email;
+    }
+
+    // Create pending metadata record
+    const { error: dbError } = await supabaseAdmin.from("student_documents").insert({
+      id: documentId,
+      student_id: resolvedStudent.id,
+      storage_path: storagePath,
+      original_filename: sanitizedName,
+      mime_type: data.mimeType,
+      file_size: data.fileSize,
+      category: data.category,
+      status: "pending",
+      uploaded_by_counsellor_id: counsellorId,
+      uploaded_by_counsellor_name: counsellorName,
+    });
+
+    if (dbError) {
+      console.error("Failed to create student_documents pending record:", dbError.message);
+      throw new Error(`500 Internal Server Error: Could not prepare upload. ${dbError.message}`);
+    }
+
+    // Create signed upload authorization
+    const { data: uploadData, error: storageError } = await supabaseAdmin.storage
+      .from("student-documents")
+      .createSignedUploadUrl(storagePath);
+
+    if (storageError || !uploadData) {
+      console.error("Failed to create signed upload URL:", storageError?.message);
+      // Clean up pending metadata record on authorization failure
+      await supabaseAdmin.from("student_documents").delete().eq("id", documentId);
+      throw new Error(
+        `500 Internal Server Error: Failed to generate signed upload authorization. ${storageError?.message ?? ""}`
+      );
+    }
+
+    return {
+      documentId,
+      storagePath,
+      signedUrl: uploadData.signedUrl,
+      token: uploadData.token,
+      path: uploadData.path,
+    };
+  });
+
+export type ConfirmDocumentUploadInput = {
+  studentId: string;
+  documentId: string;
+};
+
+/** Server function to confirm that document upload completed and transition status to 'uploaded' */
+export const confirmDocumentUpload = createServerFn({ method: "POST" })
+  .inputValidator((input: ConfirmDocumentUploadInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const documentId = String(input?.documentId ?? "").trim();
+
+    if (!studentId || !documentId) {
+      throw new Error("400 Bad Request: studentId and documentId are required.");
+    }
+
+    return { studentId, documentId };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to access this student.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch document metadata record
+    const { data: doc, error: fetchError } = await supabaseAdmin
+      .from("student_documents")
+      .select("*")
+      .eq("id", data.documentId)
+      .maybeSingle();
+
+    if (fetchError || !doc) {
+      throw new Error(`404 Not Found: Document record '${data.documentId}' not found.`);
+    }
+
+    if (doc.student_id !== resolvedStudent.id) {
+      throw new Error("403 Forbidden: Document does not belong to target student.");
+    }
+
+    // Update status to uploaded
+    const { error: updateError } = await supabaseAdmin
+      .from("student_documents")
+      .update({ status: "uploaded", updated_at: new Date().toISOString() })
+      .eq("id", data.documentId);
+
+    if (updateError) {
+      console.error("Failed to confirm document upload status:", updateError.message);
+      throw new Error(`500 Internal Server Error: Failed to confirm upload status.`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return { success: true, documentId: data.documentId };
+  });
+
+export type GetDocumentDownloadUrlInput = {
+  studentId: string;
+  documentId: string;
+};
+
+/** Server function to generate a short-lived signed URL for viewing/downloading a document */
+export const getDocumentDownloadUrl = createServerFn({ method: "POST" })
+  .inputValidator((input: GetDocumentDownloadUrlInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const documentId = String(input?.documentId ?? "").trim();
+
+    if (!studentId || !documentId) {
+      throw new Error("400 Bad Request: studentId and documentId are required.");
+    }
+
+    return { studentId, documentId };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to view this document.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: doc, error: fetchError } = await supabaseAdmin
+      .from("student_documents")
+      .select("*")
+      .eq("id", data.documentId)
+      .maybeSingle();
+
+    if (fetchError || !doc) {
+      throw new Error(`404 Not Found: Document record '${data.documentId}' not found.`);
+    }
+
+    if (doc.student_id !== resolvedStudent.id) {
+      throw new Error("403 Forbidden: Document does not belong to target student.");
+    }
+
+    if (doc.status !== "uploaded") {
+      throw new Error("400 Bad Request: Document is not in uploaded state.");
+    }
+
+    // Generate 60-second signed download URL
+    const { data: signedData, error: signedError } = await supabaseAdmin.storage
+      .from("student-documents")
+      .createSignedUrl(doc.storage_path, 60, { download: doc.original_filename });
+
+    if (signedError || !signedData) {
+      console.error("Failed to generate signed download URL:", signedError?.message);
+      throw new Error(`500 Internal Server Error: Failed to generate secure access URL.`);
+    }
+
+    return {
+      signedUrl: signedData.signedUrl,
+      filename: doc.original_filename,
+    };
+  });
+
+export type DeleteStudentDocumentInput = {
+  studentId: string;
+  documentId: string;
+};
+
+/** Server function to safely delete a student document (storage deletion first, metadata second) */
+export const deleteStudentDocument = createServerFn({ method: "POST" })
+  .inputValidator((input: DeleteStudentDocumentInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const documentId = String(input?.documentId ?? "").trim();
+
+    if (!studentId || !documentId) {
+      throw new Error("400 Bad Request: studentId and documentId are required.");
+    }
+
+    return { studentId, documentId };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to delete this document.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch document metadata
+    const { data: doc, error: fetchError } = await supabaseAdmin
+      .from("student_documents")
+      .select("*")
+      .eq("id", data.documentId)
+      .maybeSingle();
+
+    if (fetchError || !doc) {
+      throw new Error(`404 Not Found: Document record '${data.documentId}' not found.`);
+    }
+
+    if (doc.student_id !== resolvedStudent.id) {
+      throw new Error("403 Forbidden: Document does not belong to target student.");
+    }
+
+    // Step 1: Remove storage object first
+    const { error: storageDeleteError } = await supabaseAdmin.storage
+      .from("student-documents")
+      .remove([doc.storage_path]);
+
+    if (storageDeleteError) {
+      console.error("Storage object deletion failed:", storageDeleteError.message);
+      // DO NOT delete metadata row if storage deletion fails
+      throw new Error(`500 Storage Deletion Failure: ${storageDeleteError.message}. Metadata preserved.`);
+    }
+
+    // Step 2: Delete metadata row only after successful storage removal
+    const { error: dbDeleteError } = await supabaseAdmin
+      .from("student_documents")
+      .delete()
+      .eq("id", data.documentId);
+
+    if (dbDeleteError) {
+      console.error("Metadata row deletion failed after storage removal:", dbDeleteError.message);
+      throw new Error(`500 Database Deletion Failure: ${dbDeleteError.message}`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return { success: true, documentId: data.documentId };
+  });
+
+/* ------------------------------------------------------------------ */
+/* Phase 4: Student Tasks & Follow-ups Server Functions               */
+/* ------------------------------------------------------------------ */
+
+export type CreateTaskInput = {
+  studentId: string;
+  title: string;
+  description?: string | null;
+  category?: string;
+  priority?: string;
+  dueAt?: string | null;
+};
+
+/** Server function to create a new task/follow-up for an authorized student */
+export const createStudentTask = createServerFn({ method: "POST" })
+  .inputValidator((input: CreateTaskInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const title = String(input?.title ?? "").trim();
+    const description = input?.description != null ? String(input.description).trim() : null;
+    const category = String(input?.category ?? "other").trim().toLowerCase();
+    const priority = String(input?.priority ?? "normal").trim().toLowerCase();
+    const dueAt = input?.dueAt ? String(input.dueAt).trim() : null;
+
+    if (!studentId) {
+      throw new Error("400 Bad Request: studentId is required.");
+    }
+
+    const { validateTaskInput } = require("@/lib/student-tasks");
+    const val = validateTaskInput(title, priority, category);
+    if (!val.valid) {
+      throw new Error(`400 Bad Request: ${val.error}`);
+    }
+
+    return { studentId, title, description, category, priority, dueAt };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor scoping
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to create tasks for this student.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Resolve creator/assigned counsellor ID
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+
+    if (!cRow && authCtx.role === "counsellor") {
+      throw new Error("403 Forbidden: Counsellor record not found in system roster.");
+    }
+
+    const counsellorId = cRow?.id || authCtx.user.id;
+
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from("student_tasks")
+      .insert({
+        student_id: resolvedStudent.id,
+        assigned_to_counsellor_id: counsellorId,
+        created_by_counsellor_id: counsellorId,
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        priority: data.priority,
+        status: "pending",
+        due_at: data.dueAt || null,
+      })
+      .select("*")
+      .single();
+
+    if (insertError || !inserted) {
+      console.error("Failed to create student task:", insertError?.message);
+      throw new Error(`500 Internal Server Error: Could not create task.`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    // Isolated notification emission (after commit)
+    try {
+      const { emitNotification } = await import("@/lib/notifications.server");
+      await emitNotification({
+        recipientUserId: authCtx.user.id,
+        recipientRole: (authCtx.role as any) ?? "counsellor",
+        type: "task.assigned",
+        title: "New Task Created",
+        message: `Task assigned: "${data.title}"`,
+        entityType: "task",
+        entityId: inserted.id,
+        studentId: resolvedStudent.id,
+      });
+    } catch (notifErr) {
+      console.warn("[NOTIF_EMIT_CREATE_TASK_WARN]", notifErr);
+    }
+
+    return { success: true, taskId: inserted.id };
+  });
+
+export type UpdateTaskStatusInput = {
+  taskId: string;
+  studentId: string;
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+};
+
+/** Server function to update a task's status (pending, in_progress, completed, cancelled) */
+export const updateStudentTaskStatus = createServerFn({ method: "POST" })
+  .inputValidator((input: UpdateTaskStatusInput) => {
+    const taskId = String(input?.taskId ?? "").trim();
+    const studentId = String(input?.studentId ?? "").trim();
+    const status = String(input?.status ?? "").trim().toLowerCase() as any;
+
+    if (!taskId || !studentId) {
+      throw new Error("400 Bad Request: taskId and studentId are required.");
+    }
+
+    if (!["pending", "in_progress", "completed", "cancelled"].includes(status)) {
+      throw new Error(`400 Bad Request: Invalid status '${status}'.`);
+    }
+
+    return { taskId, studentId, status };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch existing task record
+    const { data: existingTask, error: fetchError } = await supabaseAdmin
+      .from("student_tasks")
+      .select("*")
+      .eq("id", data.taskId)
+      .maybeSingle();
+
+    if (fetchError || !existingTask) {
+      throw new Error(`404 Not Found: Task '${data.taskId}' not found.`);
+    }
+
+    if (existingTask.student_id !== resolvedStudent.id) {
+      throw new Error("403 Forbidden: Task does not belong to target student.");
+    }
+
+    // Verify task ownership for ordinary counsellors
+    let counsellorId: string | null = null;
+    if (authCtx.role === "counsellor") {
+      const { data: cRow } = await supabaseAdmin
+        .from("counsellors")
+        .select("id")
+        .ilike("email", authCtx.user.email)
+        .maybeSingle();
+
+      counsellorId = cRow?.id ?? null;
+
+      const isOwner =
+        counsellorId &&
+        (existingTask.assigned_to_counsellor_id === counsellorId ||
+          existingTask.created_by_counsellor_id === counsellorId);
+
+      if (!isOwner) {
+        throw new Error("403 Forbidden: You can only update tasks assigned to or created by you.");
+      }
+    }
+
+    const isCompleting = data.status === "completed";
+    const isReopening = existingTask.status === "completed" && data.status !== "completed";
+
+    const updatePayload: Record<string, any> = {
+      status: data.status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isCompleting) {
+      updatePayload.completed_at = new Date().toISOString();
+      updatePayload.completed_by_counsellor_id = counsellorId;
+    } else if (isReopening) {
+      updatePayload.completed_at = null;
+      updatePayload.completed_by_counsellor_id = null;
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("student_tasks")
+      .update(updatePayload)
+      .eq("id", data.taskId);
+
+    if (updateError) {
+      console.error("Failed to update task status:", updateError.message);
+      throw new Error("500 Internal Server Error: Failed to update task status.");
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return { success: true, taskId: data.taskId, status: data.status };
+  });
+
+export type DeleteTaskInput = {
+  taskId: string;
+  studentId: string;
+};
+
+/** Server function to delete a student task (only owner or super_admin) */
+export const deleteStudentTask = createServerFn({ method: "POST" })
+  .inputValidator((input: DeleteTaskInput) => {
+    const taskId = String(input?.taskId ?? "").trim();
+    const studentId = String(input?.studentId ?? "").trim();
+
+    if (!taskId || !studentId) {
+      throw new Error("400 Bad Request: taskId and studentId are required.");
+    }
+
+    return { taskId, studentId };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existingTask, error: fetchError } = await supabaseAdmin
+      .from("student_tasks")
+      .select("*")
+      .eq("id", data.taskId)
+      .maybeSingle();
+
+    if (fetchError || !existingTask) {
+      throw new Error(`404 Not Found: Task '${data.taskId}' not found.`);
+    }
+
+    if (existingTask.student_id !== resolvedStudent.id) {
+      throw new Error("403 Forbidden: Task does not belong to target student.");
+    }
+
+    // Verify task ownership for ordinary counsellors
+    if (authCtx.role === "counsellor") {
+      const { data: cRow } = await supabaseAdmin
+        .from("counsellors")
+        .select("id")
+        .ilike("email", authCtx.user.email)
+        .maybeSingle();
+
+      const counsellorId = cRow?.id ?? null;
+      const isOwner =
+        counsellorId &&
+        (existingTask.assigned_to_counsellor_id === counsellorId ||
+          existingTask.created_by_counsellor_id === counsellorId);
+
+      if (!isOwner) {
+        throw new Error("403 Forbidden: You can only delete tasks assigned to or created by you.");
+      }
+    }
+
+    const { error: deleteError } = await supabaseAdmin
+      .from("student_tasks")
+      .delete()
+      .eq("id", data.taskId);
+
+    if (deleteError) {
+      console.error("Failed to delete task:", deleteError.message);
+      throw new Error("500 Internal Server Error: Failed to delete task.");
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return { success: true, taskId: data.taskId };
+  });
+
+/** Server function to fetch tasks across assigned students for the Counsellor Dashboard */
+export const getCounsellorDashboardTasksData = createServerFn({ method: "GET" })
+  .handler(async ({ request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { sessions: allSessions } = await loadSessions();
+    const { profiles } = await loadStudentProfiles();
+
+    let authorizedStudents: StudentProfile[] = [];
+    if (authCtx.role === "super_admin") {
+      authorizedStudents = compose(allSessions, profiles);
+    } else {
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      authorizedStudents = compose(counsellorSessions, profiles);
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch counsellor record
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+
+    const counsellorId = cRow?.id || "";
+
+    const emails = authorizedStudents.map((s) => s.email.toLowerCase());
+    const { data: dbStudents } = await supabaseAdmin
+      .from("students")
+      .select("id, email")
+      .in("email", emails);
+
+    const authorizedStudentIds = (dbStudents ?? []).map((s) => s.id);
+
+    const { fetchCounsellorTasksData } = await import("@/lib/portal-supabase.server");
+    const { tasks } = await fetchCounsellorTasksData(counsellorId, authorizedStudentIds);
+
+    return { tasks };
+  });
+
+/* ------------------------------------------------------------------ */
+/* Phase 5: Student Shortlists, Applications & Offers Server Functions*/
+/* ------------------------------------------------------------------ */
+
+export const getUniversities = createServerFn({ method: "GET" })
+  .handler(async ({ request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+    if (!authCtx) throw new Error("401 Unauthorized: Valid login required.");
+    const { fetchUniversitiesData } = await import("@/lib/portal-supabase.server");
+    return fetchUniversitiesData();
+  });
+
+export type CreateUniversityInput = {
+  name: string;
+  country: string;
+  city?: string | null;
+  websiteUrl?: string | null;
+};
+
+export const createUniversity = createServerFn({ method: "POST" })
+  .inputValidator((input: CreateUniversityInput) => {
+    const name = String(input?.name ?? "").trim();
+    const country = String(input?.country ?? "").trim();
+    if (!name) throw new Error("400 Bad Request: University name is required.");
+    if (!country) throw new Error("400 Bad Request: Country is required.");
+    return {
+      name,
+      country,
+      city: input?.city ? String(input.city).trim() : null,
+      websiteUrl: input?.websiteUrl ? String(input.websiteUrl).trim() : null,
+    };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+    if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+    const { normalizeUniversityName } = await import("@/lib/student-applications");
+    const normalizedName = normalizeUniversityName(data.name);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing } = await supabaseAdmin
+      .from("universities")
+      .select("id, name, country, city, website_url, created_at")
+      .ilike("name", normalizedName)
+      .ilike("country", data.country)
+      .maybeSingle();
+
+    if (existing) {
+      return {
+        id: existing.id,
+        name: existing.name,
+        country: existing.country,
+        city: existing.city ?? null,
+        websiteUrl: existing.website_url ?? null,
+        createdAt: existing.created_at,
+      };
+    }
+
+    const { data: inserted, error } = await supabaseAdmin
+      .from("universities")
+      .insert({
+        name: normalizedName,
+        country: data.country,
+        city: data.city,
+        website_url: data.websiteUrl,
+      })
+      .select("id, name, country, city, website_url, created_at")
+      .single();
+
+    if (error || !inserted) {
+      throw new Error(`500 Internal Server Error: Failed to create university (${error?.message}).`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return {
+      id: inserted.id,
+      name: inserted.name,
+      country: inserted.country,
+      city: inserted.city ?? null,
+      websiteUrl: inserted.website_url ?? null,
+      createdAt: inserted.created_at,
+    };
+  });
+
+export type CreateShortlistInput = {
+  studentId: string;
+  universityId?: string;
+  universityName?: string;
+  universityCountry?: string;
+  universityCity?: string | null;
+  courseName: string;
+  degreeLevel: string;
+  intake: string;
+  category?: import("@/lib/student-applications").ShortlistCategory;
+  notes?: string | null;
+};
+
+export const createShortlist = createServerFn({ method: "POST" })
+  .inputValidator((input: CreateShortlistInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const courseName = String(input?.courseName ?? "").trim();
+    const degreeLevel = String(input?.degreeLevel ?? "").trim();
+    const intake = String(input?.intake ?? "").trim();
+
+    if (!studentId) throw new Error("400 Bad Request: studentId is required.");
+    if (!courseName) throw new Error("400 Bad Request: courseName is required.");
+    if (!degreeLevel) throw new Error("400 Bad Request: degreeLevel is required.");
+    if (!intake) throw new Error("400 Bad Request: intake is required.");
+
+    return {
+      studentId,
+      universityId: input?.universityId ? String(input.universityId).trim() : undefined,
+      universityName: input?.universityName ? String(input.universityName).trim() : undefined,
+      universityCountry: input?.universityCountry ? String(input.universityCountry).trim() : undefined,
+      universityCity: input?.universityCity ? String(input.universityCity).trim() : null,
+      courseName,
+      degreeLevel,
+      intake,
+      category: input?.category || "target",
+      notes: input?.notes ? String(input.notes).trim() : null,
+    };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+    if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolved = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolved) throw new Error("404 Not Found: Student does not exist.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    if (authCtx.role !== "super_admin") {
+      const { sessions } = await loadSessions();
+      const isAssigned = sessions.some(
+        (s) => s.counsellorEmail === authCtx.user.email && (s.studentId === resolved.id || s.studentEmail.toLowerCase() === resolved.email.toLowerCase())
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: Student is not assigned to you.");
+      }
+    }
+
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+    const counsellorId = cRow?.id || null;
+
+    let targetUniId = data.universityId;
+    if (!targetUniId && data.universityName && data.universityCountry) {
+      const { normalizeUniversityName } = await import("@/lib/student-applications");
+      const normName = normalizeUniversityName(data.universityName);
+      const { data: existingUni } = await supabaseAdmin
+        .from("universities")
+        .select("id")
+        .ilike("name", normName)
+        .ilike("country", data.universityCountry)
+        .maybeSingle();
+
+      if (existingUni) {
+        targetUniId = existingUni.id;
+      } else {
+        const { data: newUni } = await supabaseAdmin
+          .from("universities")
+          .insert({
+            name: normName,
+            country: data.universityCountry,
+            city: data.universityCity,
+          })
+          .select("id")
+          .single();
+        if (newUni) targetUniId = newUni.id;
+      }
+    }
+
+    if (!targetUniId) {
+      throw new Error("400 Bad Request: University must be specified.");
+    }
+
+    const { data: dup } = await supabaseAdmin
+      .from("student_shortlists")
+      .select("id")
+      .eq("student_id", resolved.id)
+      .eq("university_id", targetUniId)
+      .ilike("course_name", data.courseName)
+      .ilike("intake", data.intake)
+      .maybeSingle();
+
+    if (dup) {
+      throw new Error("400 Bad Request: Duplicate shortlist entry already exists for this university, course, and intake.");
+    }
+
+    const { data: inserted, error } = await supabaseAdmin
+      .from("student_shortlists")
+      .insert({
+        student_id: resolved.id,
+        university_id: targetUniId,
+        course_name: data.courseName,
+        degree_level: data.degreeLevel,
+        intake: data.intake,
+        category: data.category,
+        status: "considering",
+        notes: data.notes,
+        created_by_counsellor_id: counsellorId,
+        updated_by_counsellor_id: counsellorId,
+      })
+      .select("id")
+      .single();
+
+    if (error || !inserted) {
+      throw new Error(`500 Internal Server Error: Failed to create shortlist (${error?.message}).`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return { id: inserted.id };
+  });
+
+export type UpdateShortlistStatusInput = {
+  shortlistId: string;
+  status: import("@/lib/student-applications").ShortlistStatus;
+  category?: import("@/lib/student-applications").ShortlistCategory;
+  notes?: string | null;
+};
+
+export const updateShortlistStatus = createServerFn({ method: "POST" })
+  .inputValidator((input: UpdateShortlistStatusInput) => {
+    const shortlistId = String(input?.shortlistId ?? "").trim();
+    if (!shortlistId) throw new Error("400 Bad Request: shortlistId is required.");
+    return {
+      shortlistId,
+      status: input.status,
+      category: input.category,
+      notes: input.notes != null ? String(input.notes).trim() : undefined,
+    };
+  })
+  .handler(async (ctx: any) => {
+    const data = ctx.data;
+    const request = ctx.request as Request | undefined;
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+    if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: shortlist } = await supabaseAdmin
+      .from("student_shortlists")
+      .select("id, student_id")
+      .eq("id", data.shortlistId)
+      .single();
+
+    if (!shortlist) throw new Error("404 Not Found: Shortlist entry not found.");
+
+    if (authCtx.role !== "super_admin") {
+      const { data: student } = await supabaseAdmin.from("students").select("id, email").eq("id", shortlist.student_id).single();
+      if (student) {
+        const { sessions } = await loadSessions();
+        const isAssigned = sessions.some((s) => s.counsellorEmail === authCtx.user.email && (s.studentId === student.id || s.studentEmail.toLowerCase() === student.email.toLowerCase()));
+        if (!isAssigned) throw new Error("403 Forbidden: Student is not assigned to you.");
+      }
+    }
+
+    const { data: cRow } = await supabaseAdmin.from("counsellors").select("id").ilike("email", authCtx.user.email).maybeSingle();
+    const counsellorId = cRow?.id || null;
+
+    const updates: Record<string, any> = {
+      status: data.status,
+      updated_by_counsellor_id: counsellorId,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.category) updates['category'] = data.category;
+    if (data.notes !== undefined) updates['notes'] = data.notes;
+
+    const { error } = await supabaseAdmin.from("student_shortlists").update(updates as any).eq("id", data.shortlistId);
+    if (error) throw new Error(`500 Internal Server Error: Failed to update shortlist (${error.message}).`);
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return { success: true };
+  });
+
+export type CreateApplicationFromShortlistInput = {
+  shortlistId: string;
+  applicationNumber?: string | null;
+  applicationDeadline?: string | null;
+  notes?: string | null;
+};
+
+export const createApplicationFromShortlist = createServerFn({ method: "POST" })
+  .inputValidator((input: CreateApplicationFromShortlistInput) => {
+    const shortlistId = String(input?.shortlistId ?? "").trim();
+    if (!shortlistId) throw new Error("400 Bad Request: shortlistId is required.");
+    return {
+      shortlistId,
+      applicationNumber: input?.applicationNumber ? String(input.applicationNumber).trim() : null,
+      applicationDeadline: input?.applicationDeadline ? String(input.applicationDeadline).trim() : null,
+      notes: input?.notes ? String(input.notes).trim() : null,
+    };
+  })
+  .handler(async (ctx: any) => {
+    const data = ctx.data;
+    const request = ctx.request as Request | undefined;
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+    if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: shortlist, error: slError } = await supabaseAdmin
+      .from("student_shortlists")
+      .select("*")
+      .eq("id", data.shortlistId)
+      .single();
+
+    if (slError || !shortlist) {
+      throw new Error("404 Not Found: Shortlist option not found.");
+    }
+
+    if (authCtx.role !== "super_admin") {
+      const { data: student } = await supabaseAdmin.from("students").select("id, email").eq("id", shortlist.student_id).single();
+      if (student) {
+        const { sessions } = await loadSessions();
+        const isAssigned = sessions.some((s) => s.counsellorEmail === authCtx.user.email && (s.studentId === student.id || s.studentEmail.toLowerCase() === student.email.toLowerCase()));
+        if (!isAssigned) throw new Error("403 Forbidden: Student is not assigned to you.");
+      }
+    }
+
+    const { data: cRow } = await supabaseAdmin.from("counsellors").select("id").ilike("email", authCtx.user.email).maybeSingle();
+    const counsellorId = cRow?.id || null;
+
+    const { data: dupApp } = await supabaseAdmin
+      .from("student_applications")
+      .select("id")
+      .eq("student_id", shortlist.student_id)
+      .eq("university_id", shortlist.university_id)
+      .ilike("course_name", shortlist.course_name)
+      .ilike("intake", shortlist.intake)
+      .maybeSingle();
+
+    if (dupApp) {
+      throw new Error("400 Bad Request: An application already exists for this university, course, and intake.");
+    }
+
+    const { data: insertedApp, error: appError } = await supabaseAdmin
+      .from("student_applications")
+      .insert({
+        student_id: shortlist.student_id,
+        shortlist_id: shortlist.id,
+        university_id: shortlist.university_id,
+        course_name: shortlist.course_name,
+        degree_level: shortlist.degree_level,
+        intake: shortlist.intake,
+        application_number: data.applicationNumber,
+        status: "preparing",
+        application_deadline: data.applicationDeadline,
+        notes: data.notes || shortlist.notes,
+        created_by_counsellor_id: counsellorId,
+        updated_by_counsellor_id: counsellorId,
+      })
+      .select("id")
+      .single();
+
+    if (appError || !insertedApp) {
+      throw new Error(`500 Internal Server Error: Failed to create application (${appError?.message}).`);
+    }
+
+    await supabaseAdmin
+      .from("student_shortlists")
+      .update({
+        status: "applying",
+        updated_by_counsellor_id: counsellorId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", shortlist.id);
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return { id: insertedApp.id };
+  });
+
+export type UpdateApplicationStatusInput = {
+  applicationId: string;
+  status: import("@/lib/student-applications").ApplicationStatus;
+  submissionDate?: string | null;
+  applicationDeadline?: string | null;
+  applicationNumber?: string | null;
+  notes?: string | null;
+};
+
+export const updateApplicationStatus = createServerFn({ method: "POST" })
+  .inputValidator((input: UpdateApplicationStatusInput) => {
+    const applicationId = String(input?.applicationId ?? "").trim();
+    if (!applicationId) throw new Error("400 Bad Request: applicationId is required.");
+    return {
+      applicationId,
+      status: input.status,
+      submissionDate: input?.submissionDate ? String(input.submissionDate).trim() : undefined,
+      applicationDeadline: input?.applicationDeadline ? String(input.applicationDeadline).trim() : undefined,
+      applicationNumber: input?.applicationNumber ? String(input.applicationNumber).trim() : undefined,
+      notes: input?.notes != null ? String(input.notes).trim() : undefined,
+    };
+  })
+  .handler(async (ctx: any) => {
+    const data = ctx.data;
+    const request = ctx.request as Request | undefined;
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+    if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: app } = await supabaseAdmin.from("student_applications").select("id, student_id, status").eq("id", data.applicationId).single();
+    if (!app) throw new Error("404 Not Found: Application not found.");
+
+    if (authCtx.role !== "super_admin") {
+      const { data: student } = await supabaseAdmin.from("students").select("id, email").eq("id", app.student_id).single();
+      if (student) {
+        const { sessions } = await loadSessions();
+        const isAssigned = sessions.some((s) => s.counsellorEmail === authCtx.user.email && (s.studentId === student.id || s.studentEmail.toLowerCase() === student.email.toLowerCase()));
+        if (!isAssigned) throw new Error("403 Forbidden: Student is not assigned to you.");
+      }
+    }
+
+    if (data.status === "decision_received") {
+      const { data: offer } = await supabaseAdmin.from("student_offers").select("id").eq("application_id", data.applicationId).maybeSingle();
+      if (!offer) {
+        throw new Error("400 Bad Request: Please record offer/decision details first before updating status to Decision Received.");
+      }
+    }
+
+    const { data: cRow } = await supabaseAdmin.from("counsellors").select("id").ilike("email", authCtx.user.email).maybeSingle();
+    const counsellorId = cRow?.id || null;
+
+    const updates: Record<string, any> = {
+      status: data.status,
+      updated_by_counsellor_id: counsellorId,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.status === "submitted" && !data.submissionDate) {
+      updates['submission_date'] = new Date().toISOString();
+    } else if (data.submissionDate !== undefined) {
+      updates['submission_date'] = data.submissionDate;
+    }
+    if (data.applicationDeadline !== undefined) updates['application_deadline'] = data.applicationDeadline;
+    if (data.applicationNumber !== undefined) updates['application_number'] = data.applicationNumber;
+    if (data.notes !== undefined) updates['notes'] = data.notes;
+
+    const { error } = await supabaseAdmin.from("student_applications").update(updates as any).eq("id", data.applicationId);
+    if (error) throw new Error(`500 Internal Server Error: Failed to update application (${error.message}).`);
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    // Isolated notification emission (after commit)
+    try {
+      const { emitNotification } = await import("@/lib/notifications.server");
+      const notifType = data.status === "action_required" ? "app.action_required" : "app.status_changed";
+      await emitNotification({
+        recipientUserId: authCtx.user.id,
+        recipientRole: (authCtx.role as any) ?? "counsellor",
+        type: notifType,
+        title: data.status === "action_required" ? "Action Required on Application" : "Application Status Updated",
+        message: `Application status moved to ${data.status.replace("_", " ")}.`,
+        entityType: "application",
+        entityId: data.applicationId,
+        studentId: app.student_id,
+      });
+    } catch (notifErr) {
+      console.warn("[NOTIF_EMIT_APP_STATUS_WARN]", notifErr);
+    }
+
+    return { success: true };
+  });
+
+export type RecordApplicationDecisionInput = {
+  applicationId: string;
+  offerType: import("@/lib/student-applications").OfferType;
+  conditions?: string | null;
+  depositRequired?: boolean;
+  depositAmount?: number | null;
+  depositDeadline?: string | null;
+  offerLetterDocumentId?: string | null;
+  decisionStatus?: import("@/lib/student-applications").OfferDecisionStatus;
+  decisionDate?: string | null;
+};
+
+export const recordApplicationDecision = createServerFn({ method: "POST" })
+  .inputValidator((input: RecordApplicationDecisionInput) => {
+    const applicationId = String(input?.applicationId ?? "").trim();
+    if (!applicationId) throw new Error("400 Bad Request: applicationId is required.");
+    return {
+      applicationId,
+      offerType: input.offerType,
+      conditions: input?.conditions ? String(input.conditions).trim() : null,
+      depositRequired: Boolean(input?.depositRequired),
+      depositAmount: input?.depositAmount != null ? Number(input.depositAmount) : null,
+      depositDeadline: input?.depositDeadline ? String(input.depositDeadline).trim() : null,
+      offerLetterDocumentId: input?.offerLetterDocumentId ? String(input.offerLetterDocumentId).trim() : null,
+      decisionStatus: input?.decisionStatus || "pending",
+      decisionDate: input?.decisionDate ? String(input.decisionDate).trim() : new Date().toISOString(),
+    };
+  })
+  .handler(async (ctx: any) => {
+    const data = ctx.data;
+    const request = ctx.request as Request | undefined;
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+    if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: app } = await supabaseAdmin.from("student_applications").select("id, student_id").eq("id", data.applicationId).single();
+    if (!app) throw new Error("404 Not Found: Application not found.");
+
+    if (authCtx.role !== "super_admin") {
+      const { data: student } = await supabaseAdmin.from("students").select("id, email").eq("id", app.student_id).single();
+      if (student) {
+        const { sessions } = await loadSessions();
+        const isAssigned = sessions.some((s) => s.counsellorEmail === authCtx.user.email && (s.studentId === student.id || s.studentEmail.toLowerCase() === student.email.toLowerCase()));
+        if (!isAssigned) throw new Error("403 Forbidden: Student is not assigned to you.");
+      }
+    }
+
+    if (data.offerLetterDocumentId) {
+      const { data: doc } = await supabaseAdmin
+        .from("student_documents")
+        .select("id, student_id")
+        .eq("id", data.offerLetterDocumentId)
+        .maybeSingle();
+
+      if (!doc) {
+        throw new Error("404 Not Found: Offer letter document does not exist.");
+      }
+      if (doc.student_id !== app.student_id) {
+        throw new Error("403 Forbidden: Document does not belong to this student.");
+      }
+    }
+
+    const { data: cRow } = await supabaseAdmin.from("counsellors").select("id").ilike("email", authCtx.user.email).maybeSingle();
+    const counsellorId = cRow?.id || null;
+
+    const { error: offerError } = await supabaseAdmin
+      .from("student_offers")
+      .upsert(
+        {
+          application_id: data.applicationId,
+          offer_type: data.offerType,
+          conditions: data.conditions,
+          deposit_required: data.depositRequired,
+          deposit_amount: data.depositAmount,
+          deposit_deadline: data.depositDeadline,
+          offer_letter_document_id: data.offerLetterDocumentId,
+          decision_status: data.decisionStatus,
+          decision_date: data.decisionDate,
+          created_by_counsellor_id: counsellorId,
+          updated_by_counsellor_id: counsellorId,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "application_id" }
+      );
+
+    if (offerError) {
+      throw new Error(`500 Internal Server Error: Failed to record offer decision (${offerError.message}).`);
+    }
+
+    await supabaseAdmin
+      .from("student_applications")
+      .update({
+        status: "decision_received",
+        updated_by_counsellor_id: counsellorId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.applicationId);
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    // Isolated notification emission (after commit)
+    try {
+      const { emitNotification } = await import("@/lib/notifications.server");
+      await emitNotification({
+        recipientUserId: authCtx.user.id,
+        recipientRole: (authCtx.role as any) ?? "counsellor",
+        type: "app.decision_recorded",
+        title: "Application Decision Recorded",
+        message: `Decision/offer recorded (${data.offerType}) for application.`,
+        entityType: "application",
+        entityId: data.applicationId,
+        studentId: app.student_id,
+      });
+    } catch (notifErr) {
+      console.warn("[NOTIF_EMIT_APP_DECISION_WARN]", notifErr);
+    }
+
+    return { success: true };
+  });
+
+export type CreateApplicationFollowUpTaskInput = {
+  applicationId: string;
+  title: string;
+  description?: string | null;
+  dueAt?: string | null;
+  priority?: import("@/lib/student-tasks").TaskPriority;
+};
+
+export const createApplicationFollowUpTask = createServerFn({ method: "POST" })
+  .inputValidator((input: CreateApplicationFollowUpTaskInput) => {
+    const applicationId = String(input?.applicationId ?? "").trim();
+    const title = String(input?.title ?? "").trim();
+    if (!applicationId) throw new Error("400 Bad Request: applicationId is required.");
+    if (!title) throw new Error("400 Bad Request: Task title is required.");
+    return {
+      applicationId,
+      title,
+      description: input?.description ? String(input.description).trim() : null,
+      dueAt: input?.dueAt ? String(input.dueAt).trim() : null,
+      priority: input?.priority || "normal",
+    };
+  })
+  .handler(async (ctx: any) => {
+    const data = ctx.data;
+    const request = ctx.request as Request | undefined;
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+    if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: app } = await supabaseAdmin.from("student_applications").select("id, student_id").eq("id", data.applicationId).single();
+    if (!app) throw new Error("404 Not Found: Application not found.");
+
+    if (authCtx.role !== "super_admin") {
+      const { data: student } = await supabaseAdmin.from("students").select("id, email").eq("id", app.student_id).single();
+      if (student) {
+        const { sessions } = await loadSessions();
+        const isAssigned = sessions.some((s) => s.counsellorEmail === authCtx.user.email && (s.studentId === student.id || s.studentEmail.toLowerCase() === student.email.toLowerCase()));
+        if (!isAssigned) throw new Error("403 Forbidden: Student is not assigned to you.");
+      }
+    }
+
+    const { data: cRow } = await supabaseAdmin.from("counsellors").select("id").ilike("email", authCtx.user.email).maybeSingle();
+    const counsellorId = cRow?.id || null;
+    if (!counsellorId) throw new Error("404 Not Found: Counsellor account record not found.");
+
+    const { data: inserted, error } = await supabaseAdmin
+      .from("student_tasks")
+      .insert({
+        student_id: app.student_id,
+        assigned_to_counsellor_id: counsellorId,
+        created_by_counsellor_id: counsellorId,
+        title: data.title,
+        description: data.description,
+        category: "application",
+        priority: data.priority,
+        status: "pending",
+        due_at: data.dueAt,
+      })
+      .select("id")
+      .single();
+
+    if (error || !inserted) {
+      throw new Error(`500 Internal Server Error: Failed to create follow-up task (${error?.message}).`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    // Isolated notification emission (after commit)
+    try {
+      const { emitNotification } = await import("@/lib/notifications.server");
+      await emitNotification({
+        recipientUserId: authCtx.user.id,
+        recipientRole: (authCtx.role as any) ?? "counsellor",
+        type: "task.assigned",
+        title: "New Follow-up Task",
+        message: `Task assigned: "${data.title}"`,
+        entityType: "task",
+        entityId: inserted.id,
+        studentId: app.student_id,
+      });
+    } catch (notifErr) {
+      console.warn("[NOTIF_EMIT_TASK_WARN]", notifErr);
+    }
+
+    return { id: inserted.id };
+  });
+
+export const getCounsellorDashboardDeadlinesData = createServerFn({ method: "GET" })
+  .inputValidator((input: { counsellorEmail: string }) => ({
+    counsellorEmail: String(input?.counsellorEmail ?? "").trim(),
+  }))
+  .handler(async (ctx: any) => {
+    const data = ctx.data;
+    const request = ctx.request as Request | undefined;
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+    if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const { sessions: allSessions } = await loadSessions();
+    const { profiles } = await loadStudentProfiles();
+
+    let authorizedStudents: StudentProfile[] = [];
+    if (authCtx.role === "super_admin") {
+      authorizedStudents = compose(allSessions, profiles);
+    } else {
+      const counsellorSessions = allSessions.filter((s) => s.counsellorEmail === authCtx.user.email);
+      authorizedStudents = compose(counsellorSessions, profiles);
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const emails = authorizedStudents.map((s) => s.email.toLowerCase());
+    const { data: dbStudents } = await supabaseAdmin.from("students").select("id, email").in("email", emails);
+    const authorizedStudentIds = (dbStudents ?? []).map((s) => s.id);
+
+    const { fetchCounsellorDashboardDeadlinesData } = await import("@/lib/portal-supabase.server");
+    return fetchCounsellorDashboardDeadlinesData(authorizedStudentIds);
+  });
+
+/* ------------------------------------------------------------------ */
+/* Phase 6: Communication, Notifications & Operational Alerts        */
+/* ------------------------------------------------------------------ */
+
+export const getNotificationsList = createServerFn({ method: "GET" })
+  .handler(async (ctx: any) => {
+    const request = ctx.request as Request;
+    const { fetchUserNotifications } = await import("@/lib/notifications.server");
+    return fetchUserNotifications(request);
+  });
+
+export const getUnreadNotificationsCount = createServerFn({ method: "GET" })
+  .handler(async (ctx: any) => {
+    const request = ctx.request as Request;
+    const { fetchUnreadNotificationCount } = await import("@/lib/notifications.server");
+    return fetchUnreadNotificationCount(request);
+  });
+
+export const markNotificationReadFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { notificationId: string }) => {
+    const notificationId = String(input?.notificationId ?? "").trim();
+    if (!notificationId) throw new Error("400 Bad Request: notificationId is required.");
+    return { notificationId };
+  })
+  .handler(async (ctx: any) => {
+    const data = ctx.data;
+    const request = ctx.request as Request;
+    const { markNotificationAsRead } = await import("@/lib/notifications.server");
+    const success = await markNotificationAsRead(request, data.notificationId);
+    return { success };
+  });
+
+export const markAllNotificationsReadFn = createServerFn({ method: "POST" })
+  .handler(async (ctx: any) => {
+    const request = ctx.request as Request;
+    const { markAllNotificationsAsRead } = await import("@/lib/notifications.server");
+    const success = await markAllNotificationsAsRead(request);
+    return { success };
+  });
 
 

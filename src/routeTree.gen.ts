@@ -51,11 +51,13 @@ import { Route as AdminCounsellorsIndexRouteImport } from './routes/admin.counse
 import { Route as AdminCounsellorsIdRouteImport } from './routes/admin.counsellors.$id'
 import { Route as AdminSessionsIndexRouteImport } from './routes/admin.sessions.index'
 import { Route as AdminSessionsIdRouteImport } from './routes/admin.sessions.$id'
+import { Route as ApiCronRemindersRouteImport } from './routes/api/cron/reminders'
 import { Route as ApiPublicBookingSyncRouteImport } from './routes/api/public/booking-sync'
 import { Route as ApiPublicCalendlyWebhookRouteImport } from './routes/api/public/calendly-webhook'
 import { Route as CounsellorSessionsIndexRouteImport } from './routes/counsellor.sessions.index'
 import { Route as CounsellorSessionsIdRouteImport } from './routes/counsellor.sessions.$id'
 import { Route as CounsellorSessionsAllRouteImport } from './routes/counsellor.sessions.all'
+import { Route as CounsellorStudentsIdRouteImport } from './routes/counsellor.students.$id'
 import { Route as StudentSessionsIndexRouteImport } from './routes/student.sessions.index'
 import { Route as StudentSessionsIdRouteImport } from './routes/student.sessions.$id'
 
@@ -269,6 +271,11 @@ const AdminSessionsIdRoute = AdminSessionsIdRouteImport.update({
   path: '/admin/sessions/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronRemindersRoute = ApiCronRemindersRouteImport.update({
+  id: '/api/cron/reminders',
+  path: '/api/cron/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBookingSyncRoute = ApiPublicBookingSyncRouteImport.update({
   id: '/api/public/booking-sync',
   path: '/api/public/booking-sync',
@@ -294,6 +301,11 @@ const CounsellorSessionsAllRoute = CounsellorSessionsAllRouteImport.update({
   id: '/counsellor/sessions/all',
   path: '/counsellor/sessions/all',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CounsellorStudentsIdRoute = CounsellorStudentsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => CounsellorStudentsRoute,
 } as any)
 const StudentSessionsIndexRoute = StudentSessionsIndexRouteImport.update({
   id: '/student/sessions/',
@@ -328,7 +340,7 @@ export interface FileRoutesByFullPath {
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/profile': typeof CounsellorProfileRoute
-  '/counsellor/students': typeof CounsellorStudentsRoute
+  '/counsellor/students': typeof CounsellorStudentsRouteWithChildren
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/student/applications': typeof StudentApplicationsRoute
@@ -347,10 +359,12 @@ export interface FileRoutesByFullPath {
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
   '/api/public/booking-sync': typeof ApiPublicBookingSyncRoute
   '/api/public/calendly-webhook': typeof ApiPublicCalendlyWebhookRoute
   '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/counsellor/sessions/all': typeof CounsellorSessionsAllRoute
+  '/counsellor/students/$id': typeof CounsellorStudentsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
   '/admin/sessions/': typeof AdminSessionsIndexRoute
@@ -379,7 +393,7 @@ export interface FileRoutesByTo {
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/profile': typeof CounsellorProfileRoute
-  '/counsellor/students': typeof CounsellorStudentsRoute
+  '/counsellor/students': typeof CounsellorStudentsRouteWithChildren
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/student/applications': typeof StudentApplicationsRoute
@@ -398,10 +412,12 @@ export interface FileRoutesByTo {
   '/universities': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
   '/api/public/booking-sync': typeof ApiPublicBookingSyncRoute
   '/api/public/calendly-webhook': typeof ApiPublicCalendlyWebhookRoute
   '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/counsellor/sessions/all': typeof CounsellorSessionsAllRoute
+  '/counsellor/students/$id': typeof CounsellorStudentsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors': typeof AdminCounsellorsIndexRoute
   '/admin/sessions': typeof AdminSessionsIndexRoute
@@ -431,7 +447,7 @@ export interface FileRoutesById {
   '/counsellor/dashboard': typeof CounsellorDashboardRoute
   '/counsellor/login': typeof CounsellorLoginRoute
   '/counsellor/profile': typeof CounsellorProfileRoute
-  '/counsellor/students': typeof CounsellorStudentsRoute
+  '/counsellor/students': typeof CounsellorStudentsRouteWithChildren
   '/destinations/$slug': typeof DestinationsSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/student/applications': typeof StudentApplicationsRoute
@@ -450,10 +466,12 @@ export interface FileRoutesById {
   '/universities/': typeof UniversitiesIndexRoute
   '/admin/counsellors/$id': typeof AdminCounsellorsIdRoute
   '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
   '/api/public/booking-sync': typeof ApiPublicBookingSyncRoute
   '/api/public/calendly-webhook': typeof ApiPublicCalendlyWebhookRoute
   '/counsellor/sessions/$id': typeof CounsellorSessionsIdRoute
   '/counsellor/sessions/all': typeof CounsellorSessionsAllRoute
+  '/counsellor/students/$id': typeof CounsellorStudentsIdRoute
   '/student/sessions/$id': typeof StudentSessionsIdRoute
   '/admin/counsellors/': typeof AdminCounsellorsIndexRoute
   '/admin/sessions/': typeof AdminSessionsIndexRoute
@@ -503,10 +521,12 @@ export interface FileRouteTypes {
     | '/universities/'
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
+    | '/api/cron/reminders'
     | '/api/public/booking-sync'
     | '/api/public/calendly-webhook'
     | '/counsellor/sessions/$id'
     | '/counsellor/sessions/all'
+    | '/counsellor/students/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
     | '/admin/sessions/'
@@ -554,10 +574,12 @@ export interface FileRouteTypes {
     | '/universities'
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
+    | '/api/cron/reminders'
     | '/api/public/booking-sync'
     | '/api/public/calendly-webhook'
     | '/counsellor/sessions/$id'
     | '/counsellor/sessions/all'
+    | '/counsellor/students/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors'
     | '/admin/sessions'
@@ -605,10 +627,12 @@ export interface FileRouteTypes {
     | '/universities/'
     | '/admin/counsellors/$id'
     | '/admin/sessions/$id'
+    | '/api/cron/reminders'
     | '/api/public/booking-sync'
     | '/api/public/calendly-webhook'
     | '/counsellor/sessions/$id'
     | '/counsellor/sessions/all'
+    | '/counsellor/students/$id'
     | '/student/sessions/$id'
     | '/admin/counsellors/'
     | '/admin/sessions/'
@@ -638,7 +662,7 @@ export interface RootRouteChildren {
   CounsellorDashboardRoute: typeof CounsellorDashboardRoute
   CounsellorLoginRoute: typeof CounsellorLoginRoute
   CounsellorProfileRoute: typeof CounsellorProfileRoute
-  CounsellorStudentsRoute: typeof CounsellorStudentsRoute
+  CounsellorStudentsRoute: typeof CounsellorStudentsRouteWithChildren
   DestinationsSlugRoute: typeof DestinationsSlugRoute
   ResourcesSlugRoute: typeof ResourcesSlugRoute
   StudentApplicationsRoute: typeof StudentApplicationsRoute
@@ -657,6 +681,7 @@ export interface RootRouteChildren {
   UniversitiesIndexRoute: typeof UniversitiesIndexRoute
   AdminCounsellorsIdRoute: typeof AdminCounsellorsIdRoute
   AdminSessionsIdRoute: typeof AdminSessionsIdRoute
+  ApiCronRemindersRoute: typeof ApiCronRemindersRoute
   ApiPublicBookingSyncRoute: typeof ApiPublicBookingSyncRoute
   ApiPublicCalendlyWebhookRoute: typeof ApiPublicCalendlyWebhookRoute
   CounsellorSessionsIdRoute: typeof CounsellorSessionsIdRoute
@@ -964,6 +989,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSessionsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/reminders': {
+      id: '/api/cron/reminders'
+      path: '/api/cron/reminders'
+      fullPath: '/api/cron/reminders'
+      preLoaderRoute: typeof ApiCronRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/booking-sync': {
       id: '/api/public/booking-sync'
       path: '/api/public/booking-sync'
@@ -999,6 +1031,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CounsellorSessionsAllRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/counsellor/students/$id': {
+      id: '/counsellor/students/$id'
+      path: '/$id'
+      fullPath: '/counsellor/students/$id'
+      preLoaderRoute: typeof CounsellorStudentsIdRouteImport
+      parentRoute: typeof CounsellorStudentsRoute
+    }
     '/student/sessions/': {
       id: '/student/sessions/'
       path: '/student/sessions'
@@ -1015,6 +1054,17 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface CounsellorStudentsRouteChildren {
+  CounsellorStudentsIdRoute: typeof CounsellorStudentsIdRoute
+}
+
+const CounsellorStudentsRouteChildren: CounsellorStudentsRouteChildren = {
+  CounsellorStudentsIdRoute: CounsellorStudentsIdRoute,
+}
+
+const CounsellorStudentsRouteWithChildren =
+  CounsellorStudentsRoute._addFileChildren(CounsellorStudentsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -1038,7 +1088,7 @@ const rootRouteChildren: RootRouteChildren = {
   CounsellorDashboardRoute: CounsellorDashboardRoute,
   CounsellorLoginRoute: CounsellorLoginRoute,
   CounsellorProfileRoute: CounsellorProfileRoute,
-  CounsellorStudentsRoute: CounsellorStudentsRoute,
+  CounsellorStudentsRoute: CounsellorStudentsRouteWithChildren,
   DestinationsSlugRoute: DestinationsSlugRoute,
   ResourcesSlugRoute: ResourcesSlugRoute,
   StudentApplicationsRoute: StudentApplicationsRoute,
@@ -1057,6 +1107,7 @@ const rootRouteChildren: RootRouteChildren = {
   UniversitiesIndexRoute: UniversitiesIndexRoute,
   AdminCounsellorsIdRoute: AdminCounsellorsIdRoute,
   AdminSessionsIdRoute: AdminSessionsIdRoute,
+  ApiCronRemindersRoute: ApiCronRemindersRoute,
   ApiPublicBookingSyncRoute: ApiPublicBookingSyncRoute,
   ApiPublicCalendlyWebhookRoute: ApiPublicCalendlyWebhookRoute,
   CounsellorSessionsIdRoute: CounsellorSessionsIdRoute,

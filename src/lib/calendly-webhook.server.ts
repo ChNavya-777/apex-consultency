@@ -257,7 +257,7 @@ export async function processCalendlyWebhook(
     booking.counsellorEmail
       ? supabaseAdmin
           .from("counsellors")
-          .select("id, email, full_name")
+          .select("id, email, full_name, auth_user_id")
           .ilike("email", booking.counsellorEmail)
           .limit(1)
       : Promise.resolve({ data: [], error: null } as const),
@@ -378,12 +378,46 @@ export async function processCalendlyWebhook(
           position: index,
         })),
       );
+      if (!insertedQs.error) questionsWritten = wanted.length;
     }
   }
 
   if (kind !== "unchanged" || questionsWritten > 0) {
     const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
     invalidatePortalCache();
+  }
+
+  // Isolated notification emission for counsellor
+  // Skip cancellation alert for old invitee slot when rescheduled (subsequent invitee.created handles reschedule alert)
+  const isOldRescheduleSlotCancellation = event === "invitee.canceled" && booking.rescheduled;
+  if (counsellor?.auth_user_id && !isOldRescheduleSlotCancellation) {
+    try {
+      const { emitNotification } = await import("@/lib/notifications.server");
+      const { calendlyEventDedupKey } = await import("@/lib/notifications");
+      const notifType = booking.cancelled
+        ? "session.cancelled"
+        : booking.rescheduled
+        ? "session.rescheduled"
+        : "session.booked";
+
+      await emitNotification({
+        recipientUserId: counsellor.auth_user_id,
+        recipientRole: "counsellor",
+        type: notifType,
+        title: booking.cancelled
+          ? "Session Cancelled"
+          : booking.rescheduled
+          ? "Session Rescheduled"
+          : "New Session Scheduled",
+        message: `${booking.studentName || "Student"} - ${booking.sessionName || "Consultation"}`,
+        entityType: "session",
+        entityId: booking.bookingUid,
+        studentId: values.student_id,
+        dedupKey: calendlyEventDedupKey(event, booking.bookingUid),
+      });
+    } catch (notifErr) {
+      console.warn("[CALENDLY_NOTIF_EMIT_WARN]", notifErr);
+    }
   }
 
   return { kind, bookingUid: booking.bookingUid, questionsWritten };

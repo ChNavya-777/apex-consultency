@@ -190,6 +190,7 @@ async function fetchSnapshot(): Promise<Snapshot> {
     const email = normalizeEmail(row.email || student?.email || "");
     if (!email) continue;
     const profile: StudentProfile = {
+      id: student?.id ?? row.student_id ?? null,
       email,
       fullName: student?.full_name ?? null,
       phone: row.phone ?? null,
@@ -215,8 +216,9 @@ async function fetchSnapshot(): Promise<Snapshot> {
   const allStudents: StudentProfile[] = students.map((s) => {
     const email = normalizeEmail(s.email);
     const profile = profiles.get(email);
-    if (profile) return profile;
+    if (profile) return { ...profile, id: profile.id ?? s.id };
     return {
+      id: s.id,
       email,
       fullName: s.full_name ?? null,
       phone: null,
@@ -271,4 +273,441 @@ export async function readPortalSnapshot(): Promise<Snapshot> {
 export function invalidatePortalCache(): void {
   cache.delete(KEY);
 }
+
+/* ------------------------------------------------------------------ */
+/* Phase 2: Student Tracking & Counsellor Notes server readers        */
+/* ------------------------------------------------------------------ */
+
+export async function fetchStudentTrackingData(studentId: string): Promise<{
+  currentTracking: import("@/lib/student-tracking").StudentTrackingState;
+  history: import("@/lib/student-tracking").TrackingHistoryItem[];
+}> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const [trackingRes, historyRes] = await Promise.all([
+    supabaseAdmin
+      .from("student_tracking")
+      .select("*")
+      .eq("student_id", studentId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("student_tracking_history")
+      .select("*")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const row = trackingRes.data;
+  const currentTracking: import("@/lib/student-tracking").StudentTrackingState = row
+    ? {
+        id: row.id,
+        studentId: row.student_id,
+        currentStage: (row.current_stage as import("@/lib/student-tracking").TrackingStage) || "consultation",
+        updatedByCounsellorId: row.updated_by_counsellor_id ?? null,
+        updatedByCounsellorName: row.updated_by_counsellor_name ?? null,
+        stageNotes: row.stage_notes ?? null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }
+    : {
+        studentId,
+        currentStage: "consultation",
+        updatedByCounsellorId: null,
+        updatedByCounsellorName: null,
+        stageNotes: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+  const history: import("@/lib/student-tracking").TrackingHistoryItem[] = (historyRes.data ?? []).map(
+    (h) => ({
+      id: h.id,
+      studentId: h.student_id,
+      stage: (h.stage as import("@/lib/student-tracking").TrackingStage) || "consultation",
+      previousStage: (h.previous_stage as import("@/lib/student-tracking").TrackingStage) || null,
+      changedByCounsellorId: h.changed_by_counsellor_id ?? null,
+      changedByCounsellorName: h.changed_by_counsellor_name ?? null,
+      notes: h.notes ?? null,
+      createdAt: h.created_at,
+    }),
+  );
+
+  return { currentTracking, history };
+}
+
+export async function fetchStudentNotesData(
+  studentId: string,
+): Promise<import("@/lib/student-tracking").CounsellorStudentNote[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const { data, error } = await supabaseAdmin
+    .from("counsellor_student_notes")
+    .select("*")
+    .eq("student_id", studentId)
+    .order("is_pinned", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(`Failed to fetch counsellor notes for student ${studentId}:`, error.message);
+    return [];
+  }
+
+  return (data ?? []).map((n) => ({
+    id: n.id,
+    studentId: n.student_id,
+    counsellorId: n.counsellor_id ?? null,
+    counsellorName: n.counsellor_name,
+    counsellorEmail: n.counsellor_email,
+    noteText: n.note_text,
+    category: (n.category as import("@/lib/student-tracking").NoteCategory) || "general",
+    isPinned: n.is_pinned ?? false,
+    createdAt: n.created_at,
+    updatedAt: n.updated_at,
+  }));
+}
+
+/* ------------------------------------------------------------------ */
+/* Phase 3: Student Documents server reader                           */
+/* ------------------------------------------------------------------ */
+
+export async function fetchStudentDocumentsData(
+  studentId: string,
+): Promise<import("@/lib/student-documents").StudentDocument[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const { data, error } = await supabaseAdmin
+    .from("student_documents")
+    .select("*")
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(`Failed to fetch student documents for student ${studentId}:`, error.message);
+    return [];
+  }
+
+  return (data ?? []).map((d) => ({
+    id: d.id,
+    studentId: d.student_id,
+    storagePath: d.storage_path,
+    originalFilename: d.original_filename,
+    mimeType: d.mime_type,
+    fileSize: Number(d.file_size),
+    category: (d.category as import("@/lib/student-documents").DocumentCategory) || "other",
+    status: (d.status as import("@/lib/student-documents").DocumentStatus) || "pending",
+    uploadedByCounsellorId: d.uploaded_by_counsellor_id ?? null,
+    uploadedByCounsellorName: d.uploaded_by_counsellor_name,
+    createdAt: d.created_at,
+    updatedAt: d.updated_at,
+  }));
+}
+
+/* ------------------------------------------------------------------ */
+/* Phase 4: Student Tasks & Follow-ups server readers                 */
+/* ------------------------------------------------------------------ */
+
+export async function fetchStudentTasksData(
+  studentId: string,
+): Promise<import("@/lib/student-tasks").StudentTask[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const [tasksRes, counsellorsRes] = await Promise.all([
+    supabaseAdmin
+      .from("student_tasks")
+      .select("*")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false }),
+    supabaseAdmin.from("counsellors").select("id, full_name, email"),
+  ]);
+
+  if (tasksRes.error) {
+    console.error(`Failed to fetch student tasks for student ${studentId}:`, tasksRes.error.message);
+    return [];
+  }
+
+  const counsellorMap = new Map((counsellorsRes.data ?? []).map((c) => [c.id, c.full_name || c.email]));
+
+  return (tasksRes.data ?? []).map((t) => ({
+    id: t.id,
+    studentId: t.student_id,
+    assignedToCounsellorId: t.assigned_to_counsellor_id,
+    assignedToCounsellorName: counsellorMap.get(t.assigned_to_counsellor_id) || "Assigned Counsellor",
+    createdByCounsellorId: t.created_by_counsellor_id,
+    createdByCounsellorName: counsellorMap.get(t.created_by_counsellor_id) || "Counsellor",
+    title: t.title,
+    description: t.description ?? null,
+    category: (t.category as import("@/lib/student-tasks").TaskCategory) || "other",
+    priority: (t.priority as import("@/lib/student-tasks").TaskPriority) || "normal",
+    status: (t.status as import("@/lib/student-tasks").TaskStatus) || "pending",
+    dueAt: t.due_at ?? null,
+    completedAt: t.completed_at ?? null,
+    completedByCounsellorId: t.completed_by_counsellor_id ?? null,
+    createdAt: t.created_at,
+    updatedAt: t.updated_at,
+  }));
+}
+
+export async function fetchCounsellorTasksData(
+  counsellorId: string,
+  authorizedStudentIds: string[],
+): Promise<{
+  tasks: (import("@/lib/student-tasks").StudentTask & { studentName: string; studentEmail: string })[];
+}> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  if (authorizedStudentIds.length === 0) {
+    return { tasks: [] };
+  }
+
+  const [tasksRes, counsellorsRes, studentsRes] = await Promise.all([
+    supabaseAdmin
+      .from("student_tasks")
+      .select("*")
+      .in("student_id", authorizedStudentIds)
+      .order("due_at", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false }),
+    supabaseAdmin.from("counsellors").select("id, full_name, email"),
+    supabaseAdmin.from("students").select("id, full_name, email").in("id", authorizedStudentIds),
+  ]);
+
+  if (tasksRes.error) {
+    console.error(`Failed to fetch counsellor tasks:`, tasksRes.error.message);
+    return { tasks: [] };
+  }
+
+  const counsellorMap = new Map((counsellorsRes.data ?? []).map((c) => [c.id, c.full_name || c.email]));
+  const studentMap = new Map((studentsRes.data ?? []).map((s) => [s.id, { name: s.full_name || s.email, email: s.email }]));
+
+  const tasks = (tasksRes.data ?? []).map((t) => {
+    const s = studentMap.get(t.student_id);
+    return {
+      id: t.id,
+      studentId: t.student_id,
+      studentName: s?.name || "Student",
+      studentEmail: s?.email || "",
+      assignedToCounsellorId: t.assigned_to_counsellor_id,
+      assignedToCounsellorName: counsellorMap.get(t.assigned_to_counsellor_id) || "Assigned Counsellor",
+      createdByCounsellorId: t.created_by_counsellor_id,
+      createdByCounsellorName: counsellorMap.get(t.created_by_counsellor_id) || "Counsellor",
+      title: t.title,
+      description: t.description ?? null,
+      category: (t.category as import("@/lib/student-tasks").TaskCategory) || "other",
+      priority: (t.priority as import("@/lib/student-tasks").TaskPriority) || "normal",
+      status: (t.status as import("@/lib/student-tasks").TaskStatus) || "pending",
+      dueAt: t.due_at ?? null,
+      completedAt: t.completed_at ?? null,
+      completedByCounsellorId: t.completed_by_counsellor_id ?? null,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    };
+  });
+
+  return { tasks };
+}
+
+/* ------------------------------------------------------------------ */
+/* Phase 5: Student Shortlists, Applications & Offers server readers  */
+/* ------------------------------------------------------------------ */
+
+export async function fetchUniversitiesData(): Promise<import("@/lib/student-applications").University[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const { data, error } = await supabaseAdmin
+    .from("universities")
+    .select("id, name, country, city, website_url, created_at")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Failed to fetch universities:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((u) => ({
+    id: u.id,
+    name: u.name,
+    country: u.country,
+    city: u.city ?? null,
+    websiteUrl: u.website_url ?? null,
+    createdAt: u.created_at,
+  }));
+}
+
+export async function fetchStudentShortlistsData(
+  studentId: string,
+): Promise<import("@/lib/student-applications").StudentShortlist[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const { data, error } = await supabaseAdmin
+    .from("student_shortlists")
+    .select("*, universities(name, country, city)")
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(`Failed to fetch shortlists for student ${studentId}:`, error.message);
+    return [];
+  }
+
+  return (data ?? []).map((s: any) => {
+    const uni = s.universities || {};
+    return {
+      id: s.id,
+      studentId: s.student_id,
+      universityId: s.university_id,
+      universityName: uni.name || "Unknown University",
+      universityCountry: uni.country || "Unknown Country",
+      universityCity: uni.city || null,
+      courseName: s.course_name,
+      degreeLevel: s.degree_level,
+      intake: s.intake,
+      category: (s.category as import("@/lib/student-applications").ShortlistCategory) || "target",
+      status: (s.status as import("@/lib/student-applications").ShortlistStatus) || "considering",
+      notes: s.notes ?? null,
+      createdByCounsellorId: s.created_by_counsellor_id ?? null,
+      updatedByCounsellorId: s.updated_by_counsellor_id ?? null,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+    };
+  });
+}
+
+export async function fetchStudentApplicationsData(
+  studentId: string,
+): Promise<import("@/lib/student-applications").StudentApplication[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const [appsRes, docsRes] = await Promise.all([
+    supabaseAdmin
+      .from("student_applications")
+      .select("*, universities(name, country, city), student_offers(*)")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false }),
+    supabaseAdmin
+      .from("student_documents")
+      .select("id, original_filename")
+      .eq("student_id", studentId),
+  ]);
+
+  if (appsRes.error) {
+    console.error(`Failed to fetch applications for student ${studentId}:`, appsRes.error.message);
+    return [];
+  }
+
+  const docNameMap = new Map((docsRes.data ?? []).map((d) => [d.id, d.original_filename]));
+
+  return (appsRes.data ?? []).map((a: any) => {
+    const uni = a.universities || {};
+    const rawOffer = Array.isArray(a.student_offers) ? a.student_offers[0] : a.student_offers;
+
+    let offer: import("@/lib/student-applications").StudentOffer | null = null;
+    if (rawOffer) {
+      offer = {
+        id: rawOffer.id,
+        applicationId: rawOffer.application_id,
+        offerType: rawOffer.offer_type as import("@/lib/student-applications").OfferType,
+        conditions: rawOffer.conditions ?? null,
+        depositRequired: rawOffer.deposit_required ?? false,
+        depositAmount: rawOffer.deposit_amount ? Number(rawOffer.deposit_amount) : null,
+        depositDeadline: rawOffer.deposit_deadline ?? null,
+        offerLetterDocumentId: rawOffer.offer_letter_document_id ?? null,
+        offerLetterFilename: rawOffer.offer_letter_document_id
+          ? docNameMap.get(rawOffer.offer_letter_document_id) || null
+          : null,
+        decisionStatus: rawOffer.decision_status as import("@/lib/student-applications").OfferDecisionStatus,
+        decisionDate: rawOffer.decision_date ?? null,
+        createdByCounsellorId: rawOffer.created_by_counsellor_id ?? null,
+        updatedByCounsellorId: rawOffer.updated_by_counsellor_id ?? null,
+        createdAt: rawOffer.created_at,
+        updatedAt: rawOffer.updated_at,
+      };
+    }
+
+    return {
+      id: a.id,
+      studentId: a.student_id,
+      shortlistId: a.shortlist_id ?? null,
+      universityId: a.university_id,
+      universityName: uni.name || "Unknown University",
+      universityCountry: uni.country || "Unknown Country",
+      universityCity: uni.city || null,
+      courseName: a.course_name,
+      degreeLevel: a.degree_level,
+      intake: a.intake,
+      applicationNumber: a.application_number ?? null,
+      status: (a.status as import("@/lib/student-applications").ApplicationStatus) || "preparing",
+      submissionDate: a.submission_date ?? null,
+      applicationDeadline: a.application_deadline ?? null,
+      notes: a.notes ?? null,
+      offer,
+      createdByCounsellorId: a.created_by_counsellor_id ?? null,
+      updatedByCounsellorId: a.updated_by_counsellor_id ?? null,
+      createdAt: a.created_at,
+      updatedAt: a.updated_at,
+    };
+  });
+}
+
+export async function fetchCounsellorDashboardDeadlinesData(
+  authorizedStudentIds: string[],
+): Promise<{
+  deadlines: {
+    id: string;
+    studentId: string;
+    studentName: string;
+    universityName: string;
+    courseName: string;
+    intake: string;
+    status: import("@/lib/student-applications").ApplicationStatus;
+    deadline: string;
+    isOverdue: boolean;
+  }[];
+}> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  if (authorizedStudentIds.length === 0) {
+    return { deadlines: [] };
+  }
+
+  const [appsRes, studentsRes] = await Promise.all([
+    supabaseAdmin
+      .from("student_applications")
+      .select("id, student_id, course_name, intake, status, application_deadline, universities(name)")
+      .in("student_id", authorizedStudentIds)
+      .not("application_deadline", "is", null)
+      .neq("status", "withdrawn")
+      .order("application_deadline", { ascending: true }),
+    supabaseAdmin.from("students").select("id, full_name, email").in("id", authorizedStudentIds),
+  ]);
+
+  if (appsRes.error) {
+    console.error("Failed to fetch dashboard application deadlines:", appsRes.error.message);
+    return { deadlines: [] };
+  }
+
+  const studentMap = new Map((studentsRes.data ?? []).map((s) => [s.id, s.full_name || s.email]));
+  const { isDeadlineOverdue, isDeadlineDueSoon } = await import("@/lib/student-applications");
+
+  const deadlines = (appsRes.data ?? [])
+    .filter((a: any) => a.application_deadline && (isDeadlineOverdue(a.application_deadline, a.status) || isDeadlineDueSoon(a.application_deadline, a.status)))
+    .map((a: any) => {
+      const uni = a.universities || {};
+      const status = a.status as import("@/lib/student-applications").ApplicationStatus;
+      return {
+        id: a.id,
+        studentId: a.student_id,
+        studentName: studentMap.get(a.student_id) || "Student",
+        universityName: uni.name || "University",
+        courseName: a.course_name,
+        intake: a.intake,
+        status,
+        deadline: a.application_deadline,
+        isOverdue: isDeadlineOverdue(a.application_deadline, status),
+      };
+    });
+
+  return { deadlines };
+}
+
+
+
 

@@ -40,11 +40,13 @@ export function extractAuthToken(request?: Request): string | null {
 
     // Match any Supabase auth token cookie pattern
     for (const [key, val] of Object.entries(cookies)) {
-      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+      if (key.startsWith("sb-") && key.endsWith("-auth-token") && typeof val === "string") {
         try {
-          const parsed = JSON.parse(val) as string[] | { access_token?: string };
-          if (Array.isArray(parsed) && parsed[0]) return parsed[0];
-          if (typeof parsed === "object" && parsed?.access_token) return parsed.access_token;
+          const parsed = JSON.parse(val) as any;
+          if (Array.isArray(parsed) && typeof parsed[0] === "string") return parsed[0];
+          if (typeof parsed === "object" && parsed !== null && typeof parsed.access_token === "string") {
+            return parsed.access_token;
+          }
         } catch {
           if (val) return val;
         }

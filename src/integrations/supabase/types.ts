@@ -71,6 +71,59 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          dedup_key: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          message: string
+          read_at: string | null
+          recipient_role: string
+          recipient_user_id: string
+          student_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          dedup_key?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          message: string
+          read_at?: string | null
+          recipient_role: string
+          recipient_user_id: string
+          student_id?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          dedup_key?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          message?: string
+          read_at?: string | null
+          recipient_role?: string
+          recipient_user_id?: string
+          student_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_questions: {
         Row: {
           answer: string | null
@@ -305,6 +358,574 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      student_documents: {
+        Row: {
+          category: string
+          created_at: string
+          file_size: number
+          id: string
+          mime_type: string
+          original_filename: string
+          status: string
+          storage_path: string
+          student_id: string
+          updated_at: string
+          uploaded_by_counsellor_id: string | null
+          uploaded_by_counsellor_name: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          file_size: number
+          id?: string
+          mime_type: string
+          original_filename: string
+          status?: string
+          storage_path: string
+          student_id: string
+          updated_at?: string
+          uploaded_by_counsellor_id?: string | null
+          uploaded_by_counsellor_name: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          file_size?: number
+          id?: string
+          mime_type?: string
+          original_filename?: string
+          status?: string
+          storage_path?: string
+          student_id?: string
+          updated_at?: string
+          uploaded_by_counsellor_id?: string | null
+          uploaded_by_counsellor_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_documents_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_documents_uploaded_by_counsellor_id_fkey"
+            columns: ["uploaded_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_tracking: {
+        Row: {
+          created_at: string
+          current_stage: string
+          id: string
+          stage_notes: string | null
+          student_id: string
+          updated_at: string
+          updated_by_counsellor_id: string | null
+          updated_by_counsellor_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_stage?: string
+          id?: string
+          stage_notes?: string | null
+          student_id: string
+          updated_at?: string
+          updated_by_counsellor_id?: string | null
+          updated_by_counsellor_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_stage?: string
+          id?: string
+          stage_notes?: string | null
+          student_id?: string
+          updated_at?: string
+          updated_by_counsellor_id?: string | null
+          updated_by_counsellor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_tracking_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_tracking_updated_by_counsellor_id_fkey"
+            columns: ["updated_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_tracking_history: {
+        Row: {
+          changed_by_counsellor_id: string | null
+          changed_by_counsellor_name: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          previous_stage: string | null
+          stage: string
+          student_id: string
+        }
+        Insert: {
+          changed_by_counsellor_id?: string | null
+          changed_by_counsellor_name?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          previous_stage?: string | null
+          stage: string
+          student_id: string
+        }
+        Update: {
+          changed_by_counsellor_id?: string | null
+          changed_by_counsellor_name?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          previous_stage?: string | null
+          stage?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_tracking_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_tracking_history_changed_by_counsellor_id_fkey"
+            columns: ["changed_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      counsellor_student_notes: {
+        Row: {
+          category: string
+          counsellor_email: string
+          counsellor_id: string | null
+          counsellor_name: string
+          created_at: string
+          id: string
+          is_pinned: boolean
+          note_text: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          counsellor_email: string
+          counsellor_id?: string | null
+          counsellor_name: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean
+          note_text: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          counsellor_email?: string
+          counsellor_id?: string | null
+          counsellor_name?: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean
+          note_text?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "counsellor_student_notes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "counsellor_student_notes_counsellor_id_fkey"
+            columns: ["counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+
+      student_tasks: {
+        Row: {
+          assigned_to_counsellor_id: string
+          category: string
+          completed_at: string | null
+          completed_by_counsellor_id: string | null
+          created_at: string
+          created_by_counsellor_id: string
+          description: string | null
+          due_at: string | null
+          id: string
+          priority: string
+          status: string
+          student_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to_counsellor_id: string
+          category?: string
+          completed_at?: string | null
+          completed_by_counsellor_id?: string | null
+          created_at?: string
+          created_by_counsellor_id: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          student_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to_counsellor_id?: string
+          category?: string
+          completed_at?: string | null
+          completed_by_counsellor_id?: string | null
+          created_at?: string
+          created_by_counsellor_id?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          student_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_tasks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_tasks_assigned_to_counsellor_id_fkey"
+            columns: ["assigned_to_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_tasks_created_by_counsellor_id_fkey"
+            columns: ["created_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_tasks_completed_by_counsellor_id_fkey"
+            columns: ["completed_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      universities: {
+        Row: {
+          city: string | null
+          country: string
+          created_at: string
+          id: string
+          name: string
+          website_url: string | null
+        }
+        Insert: {
+          city?: string | null
+          country: string
+          created_at?: string
+          id?: string
+          name: string
+          website_url?: string | null
+        }
+        Update: {
+          city?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          name?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      student_shortlists: {
+        Row: {
+          category: string
+          course_name: string
+          created_at: string
+          created_by_counsellor_id: string | null
+          degree_level: string
+          id: string
+          intake: string
+          notes: string | null
+          status: string
+          student_id: string
+          university_id: string
+          updated_at: string
+          updated_by_counsellor_id: string | null
+        }
+        Insert: {
+          category?: string
+          course_name: string
+          created_at?: string
+          created_by_counsellor_id?: string | null
+          degree_level: string
+          id?: string
+          intake: string
+          notes?: string | null
+          status?: string
+          student_id: string
+          university_id: string
+          updated_at?: string
+          updated_by_counsellor_id?: string | null
+        }
+        Update: {
+          category?: string
+          course_name?: string
+          created_at?: string
+          created_by_counsellor_id?: string | null
+          degree_level?: string
+          id?: string
+          intake?: string
+          notes?: string | null
+          status?: string
+          student_id?: string
+          university_id?: string
+          updated_at?: string
+          updated_by_counsellor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_shortlists_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_shortlists_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_shortlists_created_by_counsellor_id_fkey"
+            columns: ["created_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_shortlists_updated_by_counsellor_id_fkey"
+            columns: ["updated_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_applications: {
+        Row: {
+          application_deadline: string | null
+          application_number: string | null
+          course_name: string
+          created_at: string
+          created_by_counsellor_id: string | null
+          degree_level: string
+          id: string
+          intake: string
+          notes: string | null
+          shortlist_id: string | null
+          status: string
+          student_id: string
+          submission_date: string | null
+          university_id: string
+          updated_at: string
+          updated_by_counsellor_id: string | null
+        }
+        Insert: {
+          application_deadline?: string | null
+          application_number?: string | null
+          course_name: string
+          created_at?: string
+          created_by_counsellor_id?: string | null
+          degree_level: string
+          id?: string
+          intake: string
+          notes?: string | null
+          shortlist_id?: string | null
+          status?: string
+          student_id: string
+          submission_date?: string | null
+          university_id: string
+          updated_at?: string
+          updated_by_counsellor_id?: string | null
+        }
+        Update: {
+          application_deadline?: string | null
+          application_number?: string | null
+          course_name?: string
+          created_at?: string
+          created_by_counsellor_id?: string | null
+          degree_level?: string
+          id?: string
+          intake?: string
+          notes?: string | null
+          shortlist_id?: string | null
+          status?: string
+          student_id?: string
+          submission_date?: string | null
+          university_id?: string
+          updated_at?: string
+          updated_by_counsellor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_applications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_applications_shortlist_id_fkey"
+            columns: ["shortlist_id"]
+            isOneToOne: false
+            referencedRelation: "student_shortlists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_applications_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_applications_created_by_counsellor_id_fkey"
+            columns: ["created_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_applications_updated_by_counsellor_id_fkey"
+            columns: ["updated_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_offers: {
+        Row: {
+          application_id: string
+          conditions: string | null
+          created_at: string
+          created_by_counsellor_id: string | null
+          decision_date: string | null
+          decision_status: string
+          deposit_amount: number | null
+          deposit_deadline: string | null
+          deposit_required: boolean
+          id: string
+          offer_letter_document_id: string | null
+          offer_type: string
+          updated_at: string
+          updated_by_counsellor_id: string | null
+        }
+        Insert: {
+          application_id: string
+          conditions?: string | null
+          created_at?: string
+          created_by_counsellor_id?: string | null
+          decision_date?: string | null
+          decision_status?: string
+          deposit_amount?: number | null
+          deposit_deadline?: string | null
+          deposit_required?: boolean
+          id?: string
+          offer_letter_document_id?: string | null
+          offer_type: string
+          updated_at?: string
+          updated_by_counsellor_id?: string | null
+        }
+        Update: {
+          application_id?: string
+          conditions?: string | null
+          created_at?: string
+          created_by_counsellor_id?: string | null
+          decision_date?: string | null
+          decision_status?: string
+          deposit_amount?: number | null
+          deposit_deadline?: string | null
+          deposit_required?: boolean
+          id?: string
+          offer_letter_document_id?: string | null
+          offer_type?: string
+          updated_at?: string
+          updated_by_counsellor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_offers_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "student_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_offers_offer_letter_document_id_fkey"
+            columns: ["offer_letter_document_id"]
+            isOneToOne: false
+            referencedRelation: "student_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_offers_created_by_counsellor_id_fkey"
+            columns: ["created_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_offers_updated_by_counsellor_id_fkey"
+            columns: ["updated_by_counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "counsellors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

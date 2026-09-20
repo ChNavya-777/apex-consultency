@@ -6,6 +6,8 @@ import { PasswordInput } from "@/components/ui/PasswordInput";
 import { cn } from "@/lib/utils";
 import { roleHome, roleLogin, signOut, syncTokenCookie, useSession, type PortalRole, type PortalSession } from "@/lib/portal-auth";
 
+import { NotificationBell } from "@/components/counsellor/NotificationBell";
+
 /* ------------------------------------------------------------------ */
 /* Access control (prototype, client-side)                            */
 /* ------------------------------------------------------------------ */
@@ -57,19 +59,24 @@ export function PortalLayout({
     });
   }
 
+  const showNotifications = session.role === "counsellor" || session.role === "super_admin";
+
   return (
     <div className="min-h-screen bg-surface lg:grid lg:grid-cols-[16rem_1fr]">
       {/* Mobile bar */}
       <div className="flex items-center justify-between border-b border-border bg-navy-deep px-4 py-3 text-primary-foreground lg:hidden">
         <Brand />
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? "Close menu" : "Open menu"}
-          className="rounded-md p-2 hover:bg-white/10"
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {showNotifications && <NotificationBell />}
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "Close menu" : "Open menu"}
+            className="rounded-md p-2 hover:bg-white/10"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       <aside
@@ -116,8 +123,17 @@ export function PortalLayout({
         </nav>
 
         <div className="border-t border-white/10 px-4 py-4">
-          <p className="truncate text-sm font-semibold">{session.name}</p>
-          <p className="truncate text-xs text-primary-foreground/60">{session.email}</p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">{session.name}</p>
+              <p className="truncate text-xs text-primary-foreground/60">{session.email}</p>
+            </div>
+            {showNotifications && (
+              <div className="shrink-0 bg-white/10 rounded-lg p-0.5">
+                <NotificationBell />
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={handleSignOut}

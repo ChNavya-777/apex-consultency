@@ -8,6 +8,8 @@
 import type { ConsultationSession } from "@/lib/sessions";
 
 export type StudentProfile = {
+  /** Optional UUID matching public.students.id */
+  id?: string | null;
   /** Normalised email — the linking key between the two sheets. */
   email: string;
   fullName: string | null;

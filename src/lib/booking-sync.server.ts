@@ -204,6 +204,8 @@ export async function syncBookingsToSupabase(): Promise<BookingSyncReport> {
         continue;
       }
 
+      const existing = existingByUid.get(booking.bookingUid);
+
       const values = {
         booking_uid: booking.bookingUid,
         student_id: student.id,
@@ -230,7 +232,6 @@ export async function syncBookingsToSupabase(): Promise<BookingSyncReport> {
         outcome_updated_at: existing?.outcome_updated_at ?? null,
       };
 
-      const existing = existingByUid.get(booking.bookingUid);
       let sessionId: string;
 
       if (!existing) {
