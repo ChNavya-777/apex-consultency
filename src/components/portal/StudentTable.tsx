@@ -8,7 +8,9 @@
 
 import { Fragment, useState } from "react";
 import { PortalCard } from "@/components/portal/PortalShell";
+import { EditStudentModal } from "@/components/portal/EditStudentModal";
 import type { StudentProfile } from "@/lib/portal-data";
+import { Pencil } from "lucide-react";
 
 const columns = [
   "Full Name",
@@ -18,7 +20,7 @@ const columns = [
   "Preferred Country",
   "Preferred Course",
   "Preferred Intake",
-  "",
+  "Actions",
 ];
 
 function Cell({ value }: { value: string | null }) {
@@ -66,99 +68,116 @@ export function StudentTable({
   emptyText?: string;
 }) {
   const [openEmail, setOpenEmail] = useState<string | null>(null);
+  const [editingStudent, setEditingStudent] = useState<StudentProfile | null>(null);
 
   return (
-    <PortalCard className="p-0">
-      {note && (
-        <p className="border-b border-border px-5 py-3 text-sm text-muted-foreground">{note}</p>
-      )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-border bg-surface">
-            <tr>
-              {columns.map((c, i) => (
-                <th
-                  key={c || `col-${i}`}
-                  className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                >
-                  {c}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {students.length === 0 ? (
+    <>
+      <PortalCard className="p-0">
+        {note && (
+          <p className="border-b border-border px-5 py-3 text-sm text-muted-foreground">{note}</p>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-border bg-surface">
               <tr>
-                <td colSpan={columns.length} className="px-5 py-14 text-center">
-                  <p className="font-display text-base font-semibold text-foreground">
-                    {emptyTitle}
-                  </p>
-                  <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{emptyText}</p>
-                </td>
+                {columns.map((c, i) => (
+                  <th
+                    key={c || `col-${i}`}
+                    className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    {c}
+                  </th>
+                ))}
               </tr>
-            ) : (
-              students.map((student) => {
-                const open = openEmail === student.email;
-                return (
-                  <Fragment key={student.email}>
-                    <tr className="border-b border-border">
-                      <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
-                        <Cell value={student.fullName} />
-                        {!student.found && (
-                          <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                            Profile unavailable
-                          </span>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
-                        <a href={`mailto:${student.email}`} className="hover:underline">
-                          {student.email}
-                        </a>
-                      </td>
+            </thead>
+            <tbody>
+              {students.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} className="px-5 py-14 text-center">
+                    <p className="font-display text-base font-semibold text-foreground">
+                      {emptyTitle}
+                    </p>
+                    <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{emptyText}</p>
+                  </td>
+                </tr>
+              ) : (
+                students.map((student) => {
+                  const open = openEmail === student.email;
+                  return (
+                    <Fragment key={student.email}>
+                      <tr className="border-b border-border">
+                        <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
+                          <Cell value={student.fullName} />
+                          {!student.found && (
+                            <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                              Profile unavailable
+                            </span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
+                          <a href={`mailto:${student.email}`} className="hover:underline">
+                            {student.email}
+                          </a>
+                        </td>
 
-                      <td className="whitespace-nowrap px-5 py-3">
-                        <Cell value={student.phone} />
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3">
-                        <Cell value={student.currentDegree} />
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3">
-                        <Cell value={student.preferredCountry} />
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3">
-                        <Cell value={student.preferredCourse} />
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3">
-                        <Cell value={student.preferredIntake} />
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3 text-right">
-                        {student.found && (
+                        <td className="whitespace-nowrap px-5 py-3">
+                          <Cell value={student.phone} />
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3">
+                          <Cell value={student.currentDegree} />
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3">
+                          <Cell value={student.preferredCountry} />
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3">
+                          <Cell value={student.preferredCourse} />
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3">
+                          <Cell value={student.preferredIntake} />
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3 text-right flex items-center justify-end gap-2">
                           <button
                             type="button"
-                            aria-expanded={open}
-                            onClick={() => setOpenEmail(open ? null : student.email)}
-                            className="rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface"
+                            onClick={() => setEditingStudent(student)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
                           >
-                            {open ? "Hide details" : "More details"}
+                            <Pencil className="h-3 w-3" />
+                            Edit
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                    {open && (
-                      <tr className="border-b border-border">
-                        <td colSpan={columns.length} className="p-0">
-                          <StudentDetails student={student} />
+
+                          {student.found && (
+                            <button
+                              type="button"
+                              aria-expanded={open}
+                              onClick={() => setOpenEmail(open ? null : student.email)}
+                              className="rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface"
+                            >
+                              {open ? "Hide details" : "More details"}
+                            </button>
+                          )}
                         </td>
                       </tr>
-                    )}
-                  </Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-    </PortalCard>
+                      {open && (
+                        <tr className="border-b border-border">
+                          <td colSpan={columns.length} className="p-0">
+                            <StudentDetails student={student} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </PortalCard>
 
+      <EditStudentModal
+        student={editingStudent}
+        isOpen={!!editingStudent}
+        onClose={() => setEditingStudent(null)}
+      />
+    </>
   );
 }

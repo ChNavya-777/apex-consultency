@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, CalendarPlus, Compass, UserRound } from "lucide-react";
+import { CalendarDays, CalendarPlus, Compass, UserRound, ListTodo } from "lucide-react";
 import { useMemo } from "react";
 import {
   JourneyProgress,
@@ -13,6 +13,12 @@ import { studentNav } from "@/components/student/nav";
 import { MeetingButton, SessionEmptyState, SessionStatusBadge } from "@/components/sessions/SessionUI";
 import { isSessionUpcoming, sessionDateLabel, sessionTimeLabel, sessionSlot } from "@/lib/sessions";
 import { useStudentPortalData } from "@/lib/use-portal-data";
+import {
+  taskCategoryLabels,
+  taskPriorityLabels,
+  taskStatusLabels,
+  isTaskOverdue,
+} from "@/lib/student-tasks";
 
 
 const title = "Dashboard — APEX Student Portal";
@@ -120,6 +126,92 @@ function StudentDashboardPage() {
                 </Link>
               }
             />
+          )}
+        </StudentCard>
+
+        <StudentCard title="Action Items & Counsellor Follow-ups" icon={ListTodo}>
+          {data.tasks && data.tasks.length > 0 ? (
+            <div className="space-y-3">
+              {data.tasks.map((task) => {
+                const overdue = isTaskOverdue(task.dueAt, task.status);
+                const isCompleted = task.status === "completed";
+
+                return (
+                  <div
+                    key={task.id}
+                    className={`rounded-xl border p-4 transition-all ${
+                      isCompleted
+                        ? "bg-emerald-500/5 border-emerald-500/20 opacity-75"
+                        : overdue
+                        ? "border-rose-500/30 bg-rose-500/10"
+                        : "border-border bg-surface/50"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4
+                            className={`font-display text-sm font-semibold ${
+                              isCompleted ? "line-through text-muted-foreground" : "text-foreground"
+                            }`}
+                          >
+                            {task.title}
+                          </h4>
+                          <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground border border-border">
+                            {taskCategoryLabels[task.category] || task.category}
+                          </span>
+                          <span
+                            className={`rounded px-2 py-0.5 text-[10px] font-semibold border ${
+                              task.priority === "urgent"
+                                ? "bg-rose-500/20 text-rose-400 border-rose-500/30 font-bold"
+                                : task.priority === "high"
+                                ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                            }`}
+                          >
+                            {taskPriorityLabels[task.priority] || task.priority}
+                          </span>
+                          {overdue && (
+                            <span className="rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider">
+                              Overdue
+                            </span>
+                          )}
+                        </div>
+
+                        {task.description && (
+                          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                            {task.description}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-4 text-[11px] text-muted-foreground pt-1">
+                          <span>Assigned by: <strong className="text-foreground">{task.createdByCounsellorName}</strong></span>
+                          {task.dueAt && (
+                            <span className={overdue ? "font-semibold text-rose-400" : ""}>
+                              Due: {new Date(task.dueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          task.status === "completed"
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                            : task.status === "in_progress"
+                            ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                            : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                        }`}
+                      >
+                        {taskStatusLabels[task.status] || task.status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No pending follow-ups or action items assigned.</p>
           )}
         </StudentCard>
 

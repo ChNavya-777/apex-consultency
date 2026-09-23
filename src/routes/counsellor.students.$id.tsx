@@ -21,6 +21,7 @@ import {
   Sparkles,
   Pin,
   Trash2,
+  Edit3,
   Plus,
   ArrowRight,
   ShieldAlert,
@@ -42,9 +43,11 @@ import {
   Archive,
   ExternalLink,
   Edit2,
+  Pencil,
 } from "lucide-react";
 import { PortalHeading, PortalLayout, PortalCard, useRequireRole } from "@/components/portal/PortalShell";
 import { counsellorNav } from "@/components/portal/nav";
+import { EditStudentModal } from "@/components/portal/EditStudentModal";
 import {
   useCounsellorStudentProfileData,
   useUpdateStudentTracking,
@@ -55,8 +58,11 @@ import {
   useConfirmDocumentUpload,
   useGetDocumentDownloadUrl,
   useDeleteStudentDocument,
+  useVerifyStudentDocument,
+  useRejectStudentDocument,
   useCreateStudentTask,
   useUpdateStudentTaskStatus,
+  useUpdateStudentTask,
   useDeleteStudentTask,
   useUniversities,
   useCreateShortlist,
@@ -83,12 +89,19 @@ import {
 } from "@/lib/student-tracking";
 import {
   DOCUMENT_CATEGORIES,
+  DOCUMENT_CENTER_GROUPS,
   documentCategoryLabels,
+  documentTypeLabels,
   formatFileSize,
+  sanitizeFilename,
   validateDocumentFile,
   type DocumentCategory,
   type StudentDocument,
 } from "@/lib/student-documents";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   TASK_CATEGORIES,
   TASK_PRIORITIES,
@@ -186,6 +199,9 @@ function CounsellorStudentProfilePage() {
   const { data, isLoading, refetch } = useCounsellorStudentProfileData(session?.email, id);
   const { universities } = useUniversities();
 
+  // Edit core profile modal state
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+
   // Tracking form state
   const [selectedStage, setSelectedStage] = useState<TrackingStage | "">("");
   const [stageNotes, setStageNotes] = useState("");
@@ -226,6 +242,7 @@ function CounsellorStudentProfilePage() {
 
   // Task action loading states
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<StudentTask | null>(null);
 
   // Shortlist state & modal
   const [isAddShortlistModalOpen, setIsAddShortlistModalOpen] = useState(false);
@@ -273,6 +290,11 @@ function CounsellorStudentProfilePage() {
   // Application action loading states
   const [updatingAppId, setUpdatingAppId] = useState<string | null>(null);
 
+  // Document Verification / Rejection state
+  const [rejectingDoc, setRejectingDoc] = useState<StudentDocument | null>(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState("");
+  const [verifyingDocId, setVerifyingDocId] = useState<string | null>(null);
+
   // Mutations
   const updateTrackingMutation = useUpdateStudentTracking();
   const createNoteMutation = useCreateStudentNote();
@@ -283,9 +305,12 @@ function CounsellorStudentProfilePage() {
   const confirmUploadMutation = useConfirmDocumentUpload();
   const getDownloadUrlMutation = useGetDocumentDownloadUrl();
   const deleteDocumentMutation = useDeleteStudentDocument();
+  const verifyDocumentMutation = useVerifyStudentDocument();
+  const rejectDocumentMutation = useRejectStudentDocument();
 
   const createTaskMutation = useCreateStudentTask();
   const updateTaskStatusMutation = useUpdateStudentTaskStatus();
+  const updateTaskMutation = useUpdateStudentTask();
   const deleteTaskMutation = useDeleteStudentTask();
 
   const createShortlistMutation = useCreateShortlist();
@@ -516,8 +541,8 @@ function CounsellorStudentProfilePage() {
     }
   }
 
-  // Handle task creation
-  async function handleCreateTask(e: React.FormEvent) {
+  // Handle task creation / update
+  async function handleSaveTask(e: React.FormEvent) {
     e.preventDefault();
     setTaskFeedback(null);
 
@@ -536,27 +561,41 @@ function CounsellorStudentProfilePage() {
         }
       }
 
-      await createTaskMutation.mutateAsync({
-        studentId: id,
-        title: taskTitle.trim(),
-        description: taskDescription.trim() || null,
-        category: taskCategory,
-        priority: taskPriority,
-        dueAt: formattedDueAt,
-      });
+      if (editingTask) {
+        await updateTaskMutation.mutateAsync({
+          taskId: editingTask.id,
+          studentId: id,
+          title: taskTitle.trim(),
+          description: taskDescription.trim() || null,
+          category: taskCategory,
+          priority: taskPriority,
+          dueAt: formattedDueAt,
+        });
+        setTaskFeedback({ type: "success", message: "Task updated successfully." });
+      } else {
+        await createTaskMutation.mutateAsync({
+          studentId: id,
+          title: taskTitle.trim(),
+          description: taskDescription.trim() || null,
+          category: taskCategory,
+          priority: taskPriority,
+          dueAt: formattedDueAt,
+        });
+        setTaskFeedback({ type: "success", message: "Task created successfully." });
+      }
 
-      setTaskFeedback({ type: "success", message: "Task created successfully." });
       setTaskTitle("");
       setTaskDescription("");
       setTaskDueAt("");
       setTaskCategory("other");
       setTaskPriority("normal");
+      setEditingTask(null);
       setIsTaskModalOpen(false);
       refetch();
     } catch (err) {
       setTaskFeedback({
         type: "error",
-        message: err instanceof Error ? err.message : "Failed to create task.",
+        message: err instanceof Error ? err.message : "Failed to save task.",
       });
     }
   }
@@ -860,11 +899,19 @@ function CounsellorStudentProfilePage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col items-start gap-1 sm:items-end">
-                  <span className="text-xs text-muted-foreground">Consultations</span>
-                  <span className="font-display text-lg font-bold text-brand-blue">
-                    {sessions.length} Assigned
-                  </span>
+                <div className="flex flex-col items-start gap-2 sm:items-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditProfileModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-brand-blue/30 bg-brand-blue/10 px-3 py-1.5 text-xs font-semibold text-brand-blue transition-colors hover:bg-brand-blue/20"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit Student Profile
+                  </button>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span>Consultations:</span>
+                    <span className="font-bold text-foreground">{sessions.length} Assigned</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -1911,25 +1958,12 @@ function CounsellorStudentProfilePage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="font-display text-lg font-bold text-foreground">
-                    Student Documents
+                    Document Center & Verification
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Secure private document repository for academic transcripts, ID, certificates, and visa files.
+                    Review, verify, or request updates for student application, financial, visa, and pre-departure files.
                   </p>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUploadError(null);
-                    setUploadSuccess(null);
-                    setSelectedFile(null);
-                    setIsUploadModalOpen(true);
-                  }}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-blue/90"
-                >
-                  <Plus className="h-4 w-4" /> Upload Document
-                </button>
               </div>
 
               {/* Feedback Alerts */}
@@ -1965,130 +1999,152 @@ function CounsellorStudentProfilePage() {
                 </div>
               )}
 
-              {/* Documents List */}
-              {documents.length === 0 ? (
-                <PortalCard className="py-14 text-center space-y-3">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-blue/10 text-brand-blue">
-                    <FolderOpen className="h-6 w-6" />
-                  </div>
-                  <h4 className="font-display text-base font-semibold text-foreground">
-                    No Documents Uploaded
+              {/* Document Groups */}
+              {DOCUMENT_CENTER_GROUPS.map((group) => (
+                <PortalCard key={group.groupKey} className="p-6">
+                  <h4 className="font-display text-base font-bold text-foreground border-b border-border pb-2 mb-4">
+                    {group.title}
                   </h4>
-                  <p className="mx-auto max-w-sm text-xs text-muted-foreground">
-                    No documents have been uploaded for this student yet. Click the "Upload Document" button above to add files.
-                  </p>
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUploadError(null);
-                        setUploadSuccess(null);
-                        setSelectedFile(null);
-                        setIsUploadModalOpen(true);
-                      }}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-brand-blue px-3.5 text-xs font-semibold text-white transition-colors hover:bg-brand-blue/90"
-                    >
-                      <UploadCloud className="h-4 w-4" /> Upload First Document
-                    </button>
+
+                  <div className="divide-y divide-border/60">
+                    {group.items.map((item) => {
+                      const doc = documents.find(
+                        (d) => (d.docType || d.category) === item.typeKey || d.category === group.groupKey && d.docType === item.typeKey
+                      ) || documents.find((d) => (d.docType || d.category) === item.typeKey);
+
+                      const isVerifying = doc && verifyingDocId === doc.id;
+                      const isDownloading = doc && downloadingDocId === doc.id;
+                      const isDeleting = doc && deletingDocId === doc.id;
+
+                      return (
+                        <div
+                          key={item.typeKey}
+                          className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm text-foreground">
+                                {item.label}
+                              </span>
+                              {doc ? (
+                                <span
+                                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                    doc.status === "verified"
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                      : doc.status === "rejected"
+                                      ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                                  }`}
+                                >
+                                  {doc.status === "verified"
+                                    ? "Verified"
+                                    : doc.status === "rejected"
+                                    ? "Rejected"
+                                    : "Awaiting Verification"}
+                                </span>
+                              ) : (
+                                <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground border border-border">
+                                  Not Uploaded
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-muted-foreground">{item.description}</p>
+
+                            {doc && (
+                              <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1">
+                                <p>
+                                  Filename: <strong className="text-foreground">{doc.originalFilename}</strong> ({formatFileSize(doc.fileSize)})
+                                </p>
+                                <p>
+                                  Uploaded on: {new Date(doc.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                                </p>
+                                {doc.status === "verified" && doc.verifiedByCounsellorName && (
+                                  <p className="text-emerald-700 font-medium">
+                                    ✓ Verified by {doc.verifiedByCounsellorName} on {doc.verifiedAt ? new Date(doc.verifiedAt).toLocaleDateString("en-GB") : ""}
+                                  </p>
+                                )}
+                                {doc.status === "rejected" && doc.rejectionReason && (
+                                  <div className="mt-1 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800">
+                                    <strong>Rejection Reason:</strong> {doc.rejectionReason}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Action Controls */}
+                          {doc && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                disabled={isDownloading}
+                                onClick={() => handleViewDownloadDocument(doc)}
+                                className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-input bg-background px-2.5 text-xs font-semibold text-brand-blue hover:bg-surface disabled:opacity-50"
+                              >
+                                {isDownloading ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Eye className="h-3.5 w-3.5" /> View
+                                  </>
+                                )}
+                              </button>
+
+                              {/* Verify Button */}
+                              {doc.status !== "verified" && (
+                                <button
+                                  type="button"
+                                  disabled={isVerifying || verifyDocumentMutation.isPending}
+                                  onClick={() => handleVerifyDocument(doc)}
+                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  {isVerifying ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="h-3.5 w-3.5" /> Verify
+                                    </>
+                                  )}
+                                </button>
+                              )}
+
+                              {/* Reject Button */}
+                              {doc.status !== "rejected" && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectingDoc(doc);
+                                    setRejectionReasonInput(doc.rejectionReason || "");
+                                  }}
+                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" /> Reject
+                                </button>
+                              )}
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={() => handleDeleteDocument(doc)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                                title="Delete document"
+                              >
+                                {isDeleting ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </PortalCard>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {documents.map((doc) => {
-                    const isDownloading = downloadingDocId === doc.id;
-                    const isDeleting = deletingDocId === doc.id;
-
-                    return (
-                      <PortalCard
-                        key={doc.id}
-                        className="p-5 flex flex-col justify-between space-y-4 transition-all hover:border-brand-blue/40"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-blue/10 text-brand-blue shrink-0">
-                              <FileText className="h-5 w-5" />
-                            </div>
-
-                            <span
-                              className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                doc.status === "uploaded"
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : "bg-amber-50 text-amber-700 border border-amber-200"
-                              }`}
-                            >
-                              {doc.status}
-                            </span>
-                          </div>
-
-                          <div>
-                            <h4
-                              className="font-display text-sm font-semibold text-foreground truncate"
-                              title={doc.originalFilename}
-                            >
-                              {doc.originalFilename}
-                            </h4>
-                            <div className="mt-1 flex items-center gap-2 flex-wrap">
-                              <span className="rounded-md bg-surface px-2 py-0.5 text-[11px] font-medium text-foreground border border-border">
-                                {documentCategoryLabels[doc.category] || doc.category}
-                              </span>
-                              <span className="text-[11px] text-muted-foreground font-mono">
-                                {formatFileSize(doc.fileSize)}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1 border-t border-border">
-                            <p>
-                              Uploaded by <span className="font-medium text-foreground">{doc.uploadedByCounsellorName}</span>
-                            </p>
-                            <p>
-                              {new Date(doc.createdAt).toLocaleString("en-GB", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-2 pt-2 border-t border-border">
-                          <button
-                            type="button"
-                            disabled={doc.status !== "uploaded" || isDownloading}
-                            onClick={() => handleViewDownloadDocument(doc)}
-                            className="flex-1 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-input bg-background px-3 text-xs font-semibold text-brand-blue transition-colors hover:bg-surface disabled:opacity-50"
-                          >
-                            {isDownloading ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <>
-                                <Eye className="h-3.5 w-3.5" /> View / Download
-                              </>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isDeleting}
-                            onClick={() => handleDeleteDocument(doc)}
-                            title="Delete document"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-input bg-background text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 disabled:opacity-50"
-                          >
-                            {isDeleting ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </PortalCard>
-                    );
-                  })}
-                </div>
-              )}
+              ))}
 
               {/* Upload Document Modal Dialog */}
               {isUploadModalOpen && (
@@ -2480,6 +2536,25 @@ function CounsellorStudentProfilePage() {
                             <button
                               type="button"
                               disabled={isUpdating}
+                              onClick={() => {
+                                setEditingTask(t);
+                                setTaskTitle(t.title);
+                                setTaskDescription(t.description || "");
+                                setTaskDueAt(t.dueAt ? t.dueAt.split("T")[0] : "");
+                                setTaskCategory(t.category);
+                                setTaskPriority(t.priority);
+                                setTaskFeedback(null);
+                                setIsTaskModalOpen(true);
+                              }}
+                              title="Edit task"
+                              className="rounded-lg p-1.5 text-muted-foreground hover:bg-surface hover:text-foreground"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isUpdating}
                               onClick={() => handleDeleteTask(t)}
                               title="Delete task"
                               className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-50 hover:text-rose-600"
@@ -2494,7 +2569,7 @@ function CounsellorStudentProfilePage() {
                 </div>
               )}
 
-              {/* Create Task Modal */}
+              {/* Create / Edit Task Modal */}
               {isTaskModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
                   <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-xl space-y-5">
@@ -2502,12 +2577,15 @@ function CounsellorStudentProfilePage() {
                       <div className="flex items-center gap-2">
                         <ListTodo className="h-5 w-5 text-brand-blue" />
                         <h3 className="font-display text-base font-bold text-foreground">
-                          Add Follow-up / Task
+                          {editingTask ? "Edit Follow-up / Task" : "Add Follow-up / Task"}
                         </h3>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setIsTaskModalOpen(false)}
+                        onClick={() => {
+                          setIsTaskModalOpen(false);
+                          setEditingTask(null);
+                        }}
                         className="rounded-lg p-1 text-muted-foreground hover:bg-surface hover:text-foreground"
                       >
                         <X className="h-5 w-5" />
@@ -2526,7 +2604,7 @@ function CounsellorStudentProfilePage() {
                       </div>
                     )}
 
-                    <form onSubmit={handleCreateTask} className="space-y-4">
+                    <form onSubmit={handleSaveTask} className="space-y-4">
                       <div>
                         <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
                           Task Title *
@@ -3199,6 +3277,86 @@ function CounsellorStudentProfilePage() {
             </div>
           )}
         </div>
+      )}
+
+      <EditStudentModal
+        student={student}
+        isOpen={isEditProfileModalOpen}
+        onClose={() => setIsEditProfileModalOpen(false)}
+      />
+
+      {/* Document Rejection Modal */}
+      {rejectingDoc && (
+        <Dialog open={!!rejectingDoc} onOpenChange={(open) => !open && setRejectingDoc(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-rose-600">
+                <AlertTriangle className="h-5 w-5" />
+                Reject Document
+              </DialogTitle>
+              <DialogDescription>
+                Specify the reason why <strong>{documentTypeLabels[rejectingDoc.docType || ""] || rejectingDoc.originalFilename}</strong> requires student action.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!rejectingDoc || !rejectionReasonInput.trim()) return;
+                const targetStudentId = student?.id || id;
+                setActionError(null);
+                try {
+                  await rejectDocumentMutation.mutateAsync({
+                    studentId: targetStudentId,
+                    documentId: rejectingDoc.id,
+                    rejectionReason: rejectionReasonInput.trim(),
+                  });
+                  setUploadSuccess(`Document rejected. Student notified to re-upload.`);
+                  setRejectingDoc(null);
+                  setRejectionReasonInput("");
+                  refetch();
+                } catch (err) {
+                  setActionError(err instanceof Error ? err.message : "Failed to reject document.");
+                }
+              }}
+              className="space-y-4 pt-2"
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="rejectionReason" className="text-xs font-semibold">
+                  Rejection Reason / Action Required <span className="text-rose-600">*</span>
+                </Label>
+                <Textarea
+                  id="rejectionReason"
+                  value={rejectionReasonInput}
+                  onChange={(e) => setRejectionReasonInput(e.target.value)}
+                  placeholder="e.g. Page 3 is blurry or incomplete. Please upload a clear original copy."
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setRejectingDoc(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  disabled={rejectDocumentMutation.isPending || !rejectionReasonInput.trim()}
+                >
+                  {rejectDocumentMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Rejecting...
+                    </>
+                  ) : (
+                    "Reject Document"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       )}
     </PortalLayout>
   );

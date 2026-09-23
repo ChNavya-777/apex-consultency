@@ -363,44 +363,59 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          doc_type: string | null
           file_size: number
           id: string
           mime_type: string
           original_filename: string
+          rejection_reason: string | null
           status: string
           storage_path: string
           student_id: string
           updated_at: string
           uploaded_by_counsellor_id: string | null
           uploaded_by_counsellor_name: string
+          verified_at: string | null
+          verified_by_counsellor_id: string | null
+          verified_by_counsellor_name: string | null
         }
         Insert: {
           category?: string
           created_at?: string
+          doc_type?: string | null
           file_size: number
           id?: string
           mime_type: string
           original_filename: string
+          rejection_reason?: string | null
           status?: string
           storage_path: string
           student_id: string
           updated_at?: string
           uploaded_by_counsellor_id?: string | null
           uploaded_by_counsellor_name: string
+          verified_at?: string | null
+          verified_by_counsellor_id?: string | null
+          verified_by_counsellor_name?: string | null
         }
         Update: {
           category?: string
           created_at?: string
+          doc_type?: string | null
           file_size?: number
           id?: string
           mime_type?: string
           original_filename?: string
+          rejection_reason?: string | null
           status?: string
           storage_path?: string
           student_id?: string
           updated_at?: string
           uploaded_by_counsellor_id?: string | null
           uploaded_by_counsellor_name?: string
+          verified_at?: string | null
+          verified_by_counsellor_id?: string | null
+          verified_by_counsellor_name?: string | null
         }
         Relationships: [
           {

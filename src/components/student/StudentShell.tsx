@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { site } from "@/data/site";
 import { roleHome, signOut, useSession, type PortalSession } from "@/lib/portal-auth";
+import { useUnreadNotificationCount } from "@/lib/use-portal-data";
 
 /* ------------------------------------------------------------------ */
 /* Access control (prototype, client-side)                            */
@@ -86,6 +87,7 @@ export function StudentSidebar({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const { data: unreadCount = 0 } = useUnreadNotificationCount();
 
   async function handleSignOut() {
     signOut();
@@ -107,6 +109,8 @@ export function StudentSidebar({
                 const active =
                   !item.hash &&
                   (pathname === item.to || pathname.startsWith(`${item.to}/`));
+                const isNotif = item.to === "/student/notifications";
+
                 return (
                   <li key={item.label}>
                     <Link
@@ -130,7 +134,12 @@ export function StudentSidebar({
                           )}
                         />
                       )}
-                      {item.label}
+                      <span>{item.label}</span>
+                      {isNotif && unreadCount > 0 && (
+                        <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">
+                          {unreadCount}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -156,17 +165,33 @@ export function StudentSidebar({
 }
 
 export function StudentHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
+  const { data: unreadCount = 0 } = useUnreadNotificationCount();
+
   return (
     <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-card/95 px-4 py-3 backdrop-blur lg:hidden">
       <StudentBrand />
-      <button
-        type="button"
-        onClick={onOpenMenu}
-        aria-label="Open menu"
-        className="rounded-lg p-2 text-foreground transition-colors hover:bg-surface"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+      <div className="flex items-center gap-1">
+        <Link
+          to="/student/notifications"
+          className="relative rounded-lg p-2 text-foreground transition-colors hover:bg-surface"
+          aria-label="Notifications"
+        >
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </Link>
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          aria-label="Open menu"
+          className="rounded-lg p-2 text-foreground transition-colors hover:bg-surface"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      </div>
     </div>
   );
 }

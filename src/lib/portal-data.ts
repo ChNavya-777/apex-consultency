@@ -32,6 +32,10 @@ export type StudentProfile = {
 export type PortalData = {
   sessions: ConsultationSession[];
   students: StudentProfile[];
+  documents?: import("@/lib/student-documents").StudentDocument[];
+  tasks?: import("@/lib/student-tasks").StudentTask[];
+  shortlists?: import("@/lib/student-applications").StudentShortlist[];
+  applications?: import("@/lib/student-applications").StudentApplication[];
   /** Present when the Student Sheet could not be read (booking data still usable). */
   studentSourceError: string | null;
 };

@@ -20,8 +20,11 @@ import {
   confirmDocumentUpload,
   getDocumentDownloadUrl,
   deleteStudentDocument,
+  verifyStudentDocument,
+  rejectStudentDocument,
   createStudentTask,
   updateStudentTaskStatus,
+  updateStudentTask,
   deleteStudentTask,
   getCounsellorDashboardTasksData,
   getUniversities,
@@ -31,14 +34,17 @@ import {
   createApplicationFromShortlist,
   updateApplicationStatus,
   recordApplicationDecision,
+  updateOfferDecisionStatus,
   createApplicationFollowUpTask,
   getCounsellorDashboardDeadlinesData,
   getNotificationsList,
   getUnreadNotificationsCount,
   markNotificationReadFn,
   markAllNotificationsReadFn,
+  updateStudentProfile,
   type CounsellorStudentProfileResponse,
   type UpdateTrackingInput,
+  type UpdateStudentProfileInput,
   type CreateNoteInput,
   type TogglePinNoteInput,
   type DeleteNoteInput,
@@ -46,8 +52,11 @@ import {
   type ConfirmDocumentUploadInput,
   type GetDocumentDownloadUrlInput,
   type DeleteStudentDocumentInput,
+  type VerifyStudentDocumentInput,
+  type RejectStudentDocumentInput,
   type CreateTaskInput,
   type UpdateTaskStatusInput,
+  type UpdateTaskInput,
   type DeleteTaskInput,
   type CreateUniversityInput,
   type CreateShortlistInput,
@@ -55,6 +64,7 @@ import {
   type CreateApplicationFromShortlistInput,
   type UpdateApplicationStatusInput,
   type RecordApplicationDecisionInput,
+  type UpdateOfferDecisionStatusInput,
   type CreateApplicationFollowUpTaskInput,
 } from "@/lib/portal-data.functions";
 import type { PortalData } from "@/lib/portal-data";
@@ -103,6 +113,17 @@ export function useUpdateStudentTracking() {
   const fetcher = useServerFn(updateStudentTracking);
   return useMutation({
     mutationFn: (input: UpdateTrackingInput) => fetcher({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
+  });
+}
+
+export function useUpdateStudentProfile() {
+  const queryClient = useQueryClient();
+  const fetcher = useServerFn(updateStudentProfile);
+  return useMutation({
+    mutationFn: (input: UpdateStudentProfileInput) => fetcher({ data: input }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["portal"] });
     },
@@ -178,6 +199,28 @@ export function useDeleteStudentDocument() {
   });
 }
 
+export function useVerifyStudentDocument() {
+  const queryClient = useQueryClient();
+  const fetcher = useServerFn(verifyStudentDocument);
+  return useMutation({
+    mutationFn: (input: VerifyStudentDocumentInput) => fetcher({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
+  });
+}
+
+export function useRejectStudentDocument() {
+  const queryClient = useQueryClient();
+  const fetcher = useServerFn(rejectStudentDocument);
+  return useMutation({
+    mutationFn: (input: RejectStudentDocumentInput) => fetcher({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
+  });
+}
+
 export function useCreateStudentTask() {
   const queryClient = useQueryClient();
   const fetcher = useServerFn(createStudentTask);
@@ -194,6 +237,17 @@ export function useUpdateStudentTaskStatus() {
   const fetcher = useServerFn(updateStudentTaskStatus);
   return useMutation({
     mutationFn: (input: UpdateTaskStatusInput) => fetcher({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
+  });
+}
+
+export function useUpdateStudentTask() {
+  const queryClient = useQueryClient();
+  const fetcher = useServerFn(updateStudentTask);
+  return useMutation({
+    mutationFn: (input: UpdateTaskInput) => fetcher({ data: input }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["portal"] });
     },
@@ -317,6 +371,17 @@ export function useRecordApplicationDecision() {
   const fetcher = useServerFn(recordApplicationDecision);
   return useMutation({
     mutationFn: (input: RecordApplicationDecisionInput) => fetcher({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
+  });
+}
+
+export function useUpdateOfferDecisionStatus() {
+  const queryClient = useQueryClient();
+  const fetcher = useServerFn(updateOfferDecisionStatus);
+  return useMutation({
+    mutationFn: (input: UpdateOfferDecisionStatusInput) => fetcher({ data: input }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["portal"] });
     },
