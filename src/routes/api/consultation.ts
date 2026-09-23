@@ -13,17 +13,18 @@ import { z } from "zod";
 const APPS_SCRIPT_WEB_APP_URL =
   "https://script.google.com/macros/s/AKfycbwx1NhImXQ9HAC-zSzkkt56ZJteTH7-wN_Q-1nk4quf1SYMQZIiKk7yU2x-6--5xc-4/exec";
 
+// No field is mandatory except email (the signed-in account email used for matching).
 const consultationSchema = z.object({
-  fullName: z.string().trim().min(1, "Full name is required."),
-  phone: z.string().trim().min(1, "Phone number is required."),
+  fullName: z.string().trim().default(""),
+  phone: z.string().trim().default(""),
   email: z.string().trim().email("Enter a valid email address."),
-  degree: z.string().trim().min(1, "Current degree is required."),
+  degree: z.string().trim().default(""),
   branch: z.string().trim().default(""),
   graduationYear: z.string().trim().default(""),
   cgpa: z.string().trim().default(""),
-  country: z.string().trim().min(1, "Preferred country is required."),
+  country: z.string().trim().default(""),
   course: z.string().trim().default(""),
-  intake: z.string().trim().min(1, "Preferred intake is required."),
+  intake: z.string().trim().default(""),
   englishTest: z.string().trim().default(""),
   budget: z.string().trim().default(""),
   message: z.string().trim().default(""),
