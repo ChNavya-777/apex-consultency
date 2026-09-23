@@ -7,7 +7,7 @@ import { useCounsellorPortalData } from "@/lib/use-portal-data";
 const title = "My Students — APEX Global Education Portal";
 const description = "Students associated with your consultation sessions.";
 
-export const Route = createFileRoute("/counsellor/students")({
+export const Route = createFileRoute("/counsellor/students/")({
   head: () => ({
     meta: [
       { title },
