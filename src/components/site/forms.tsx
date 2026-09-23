@@ -168,10 +168,14 @@ type Errors = Record<string, string>;
 
 function validate(data: FormData, required: string[]): Errors {
   const errors: Errors = {};
-  for (const key of required) {
+  // Email/phone format is checked whenever a value is present, even when optional.
+  const keys = new Set([...required, "email", "phone"]);
+  for (const key of keys) {
     const value = String(data.get(key) ?? "").trim();
     if (!value) {
-      errors[key] = "This field is required.";
+      if (required.includes(key)) {
+        errors[key] = "This field is required.";
+      }
       continue;
     }
     if (key === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
@@ -308,7 +312,8 @@ export function ConsultationForm() {
       onSubmit={async (e) => {
         e.preventDefault();
         const data = new FormData(e.currentTarget);
-        const found = validate(data, ["fullName", "phone", "email", "degree", "country", "intake"]);
+        // No field is mandatory on the consultation form; format is checked only when filled.
+        const found = validate(data, []);
         setErrors(found);
         if (Object.keys(found).length > 0) return;
 
@@ -358,21 +363,14 @@ export function ConsultationForm() {
     >
       <h2 className="font-display text-xl font-bold">Consultation request</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        The more you share, the more specific our first conversation can be. Required fields are
-        marked with an asterisk.
+        The more you share, the more specific our first conversation can be.
       </p>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
-        <Field id="fullName" label="Full name" required error={errors["fullName"]}>
-          <Input
-            id="fullName"
-            name="fullName"
-            autoComplete="name"
-            defaultValue={studentName}
-            aria-invalid={!!errors["fullName"]}
-          />
+        <Field id="fullName" label="Full name">
+          <Input id="fullName" name="fullName" autoComplete="name" defaultValue={studentName} />
         </Field>
-        <Field id="phone" label="Phone number" required error={errors["phone"]}>
+        <Field id="phone" label="Phone number" error={errors["phone"]}>
           <Input
             id="phone"
             name="phone"
@@ -381,7 +379,7 @@ export function ConsultationForm() {
             aria-invalid={!!errors["phone"]}
           />
         </Field>
-        <Field id="email" label="Email" required error={errors["email"]} className="sm:col-span-2">
+        <Field id="email" label="Email" error={errors["email"]} className="sm:col-span-2">
           <Input
             id="email"
             name="email"
@@ -398,14 +396,12 @@ export function ConsultationForm() {
             </p>
           )}
         </Field>
-        <Field id="degree" label="Current degree" required error={errors["degree"]}>
+        <Field id="degree" label="Current degree">
           <SelectInput
             id="degree"
             name="degree"
-            required
             options={["B.Tech / B.E.", "B.Sc", "B.Com / BBA", "Diploma", "Other"]}
             placeholder="Select your degree"
-            ariaInvalid={!!errors["degree"]}
           />
         </Field>
         <Field id="branch" label="Branch / specialisation">
@@ -422,14 +418,12 @@ export function ConsultationForm() {
         <Field id="cgpa" label="CGPA / percentage">
           <Input id="cgpa" name="cgpa" placeholder="e.g. 7.8 or 72%" />
         </Field>
-        <Field id="country" label="Preferred country" required error={errors["country"]}>
+        <Field id="country" label="Preferred country">
           <SelectInput
             id="country"
             name="country"
-            required
             options={countryOptions}
             placeholder="Select a country"
-            ariaInvalid={!!errors["country"]}
           />
         </Field>
         <Field id="course" label="Preferred course">
@@ -440,11 +434,10 @@ export function ConsultationForm() {
             placeholder="Select a course"
           />
         </Field>
-        <Field id="intake" label="Preferred intake" required error={errors["intake"]}>
+        <Field id="intake" label="Preferred intake">
           <SelectInput
             id="intake"
             name="intake"
-            required
             options={[
               "Fall / September 2026",
               "January 2027",
@@ -452,7 +445,6 @@ export function ConsultationForm() {
               "Not decided yet",
             ]}
             placeholder="Select an intake"
-            ariaInvalid={!!errors["intake"]}
           />
         </Field>
         <Field id="englishTest" label="IELTS / PTE status">
