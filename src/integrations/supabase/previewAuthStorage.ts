@@ -78,7 +78,12 @@ export function brokeredPreviewStorage() {
     },
     setItem: (key: string, value: string) => {
       sessionStorage.setItem(key, value);
-      return request('lovable-preview-auth:set', key, value).then(() => undefined);
+      return request('lovable-preview-auth:set', key, value).then((res) => {
+        if (res && res.ok && typeof res.value === 'string' && sessionStorage.getItem(key) === value) {
+          if (res.value === '') sessionStorage.removeItem(key);
+          else sessionStorage.setItem(key, res.value);
+        }
+      });
     },
     removeItem: (key: string) => {
       sessionStorage.removeItem(key);
