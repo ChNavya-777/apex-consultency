@@ -57,6 +57,7 @@ import {
   usePrepareDocumentUpload,
   useConfirmDocumentUpload,
   useGetDocumentDownloadUrl,
+  useGetDocumentPreviewUrl,
   useDeleteStudentDocument,
   useVerifyStudentDocument,
   useRejectStudentDocument,
@@ -72,6 +73,7 @@ import {
   useRecordApplicationDecision,
   useCreateApplicationFollowUpTask,
 } from "@/lib/use-portal-data";
+import { DocumentPreviewModal, type PreviewDocumentInfo } from "@/components/portal/DocumentPreviewModal";
 import {
   formatSessionDate,
   formatSessionTime,
@@ -142,7 +144,7 @@ const description = "View student profile details, tracking progress, notes, doc
 
 export const Route = createFileRoute("/counsellor/students/$id")({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: (search.tab as string) || undefined,
+    tab: (search["tab"] as string) || undefined,
   }),
   head: () => ({
     meta: [
@@ -240,6 +242,16 @@ function CounsellorStudentProfilePage() {
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Document preview modal state
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<PreviewDocumentInfo | null>(null);
+  const [previewUrls, setPreviewUrls] = useState<{ previewUrl: string | null; downloadUrl: string | null }>({
+    previewUrl: null,
+    downloadUrl: null,
+  });
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
   // Task action loading states
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<StudentTask | null>(null);
@@ -304,6 +316,7 @@ function CounsellorStudentProfilePage() {
   const prepareUploadMutation = usePrepareDocumentUpload();
   const confirmUploadMutation = useConfirmDocumentUpload();
   const getDownloadUrlMutation = useGetDocumentDownloadUrl();
+  const getPreviewUrlMutation = useGetDocumentPreviewUrl();
   const deleteDocumentMutation = useDeleteStudentDocument();
   const verifyDocumentMutation = useVerifyStudentDocument();
   const rejectDocumentMutation = useRejectStudentDocument();
@@ -334,6 +347,11 @@ function CounsellorStudentProfilePage() {
     authorized,
     error,
   } = data;
+
+  const sortedDocuments = [...documents].sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+
   const currentStage = tracking?.currentTracking?.currentStage || "consultation";
   const currentStageIndex = getStageIndex(currentStage);
 
@@ -502,24 +520,65 @@ function CounsellorStudentProfilePage() {
     }
   }
 
-  // Handle document view/download signed URL generation
+  // Handle document view — open in-app preview modal instead of auto-download
   async function handleViewDownloadDocument(doc: StudentDocument) {
     setActionError(null);
+    setPreviewError(null);
+    setPreviewUrls({ previewUrl: null, downloadUrl: null });
+    setPreviewDoc({
+      id: doc.id,
+      originalFilename: doc.originalFilename,
+      fileSize: doc.fileSize,
+      mimeType: doc.mimeType ?? null,
+      docType: doc.docType ?? null,
+      status: doc.status,
+      rejectionReason: doc.rejectionReason ?? null,
+    });
+    setPreviewModalOpen(true);
+    setIsLoadingPreview(true);
     setDownloadingDocId(doc.id);
+
     try {
-      const res = await getDownloadUrlMutation.mutateAsync({
+      const res = await getPreviewUrlMutation.mutateAsync({
         studentId: id,
         documentId: doc.id,
       });
-      if (res?.signedUrl) {
-        window.open(res.signedUrl, "_blank", "noopener,noreferrer");
-      } else {
-        setActionError("Could not retrieve secure download URL.");
-      }
+      setPreviewUrls({
+        previewUrl: res.previewUrl ?? null,
+        downloadUrl: res.downloadUrl ?? null,
+      });
+      // Patch in any extra metadata returned from server
+      setPreviewDoc((prev) => prev ? {
+        ...prev,
+        mimeType: res.mimeType ?? prev.mimeType ?? null,
+        fileSize: res.fileSize || prev.fileSize,
+        status: res.status || prev.status,
+        rejectionReason: res.rejectionReason ?? prev.rejectionReason ?? null,
+      } : prev);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to generate download link.");
+      setPreviewError(err instanceof Error ? err.message : "Failed to generate preview.");
     } finally {
+      setIsLoadingPreview(false);
       setDownloadingDocId(null);
+    }
+  }
+
+  // Handle document verification
+  async function handleVerifyDocument(doc: StudentDocument) {
+    const targetStudentId = student?.id || id;
+    setActionError(null);
+    setVerifyingDocId(doc.id);
+    try {
+      await verifyDocumentMutation.mutateAsync({
+        studentId: targetStudentId,
+        documentId: doc.id,
+      });
+      setUploadSuccess(`Document "${doc.originalFilename}" verified successfully.`);
+      refetch();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to verify document.");
+    } finally {
+      setVerifyingDocId(null);
     }
   }
 
@@ -746,7 +805,7 @@ function CounsellorStudentProfilePage() {
     setOfferConditions(app.offer?.conditions || "");
     setOfferDepositRequired(app.offer?.depositRequired || false);
     setOfferDepositAmount(app.offer?.depositAmount ? String(app.offer.depositAmount) : "");
-    setOfferDepositDeadline(app.offer?.depositDeadline ? app.offer.depositDeadline.split("T")[0] : "");
+    setOfferDepositDeadline(app.offer?.depositDeadline ? (app.offer.depositDeadline.split("T")[0] ?? "") : "");
     setOfferDocumentId(app.offer?.offerLetterDocumentId || "");
     setDecisionFeedback(null);
     setIsDecisionModalOpen(true);
@@ -2000,151 +2059,179 @@ function CounsellorStudentProfilePage() {
               )}
 
               {/* Document Groups */}
-              {DOCUMENT_CENTER_GROUPS.map((group) => (
-                <PortalCard key={group.groupKey} className="p-6">
-                  <h4 className="font-display text-base font-bold text-foreground border-b border-border pb-2 mb-4">
-                    {group.title}
-                  </h4>
+              {(() => {
+                // Map newest uploaded document per docType slot (newest active document wins)
+                const docMap = new Map<string, StudentDocument>();
 
-                  <div className="divide-y divide-border/60">
-                    {group.items.map((item) => {
-                      const doc = documents.find(
-                        (d) => (d.docType || d.category) === item.typeKey || d.category === group.groupKey && d.docType === item.typeKey
-                      ) || documents.find((d) => (d.docType || d.category) === item.typeKey);
+                // Pass 1: exact docType matches (newest wins)
+                for (const doc of sortedDocuments) {
+                  if (doc.docType && doc.docType !== "other") {
+                    if (!docMap.has(doc.docType)) {
+                      docMap.set(doc.docType, doc);
+                    }
+                  }
+                }
 
-                      const isVerifying = doc && verifyingDocId === doc.id;
-                      const isDownloading = doc && downloadingDocId === doc.id;
-                      const isDeleting = doc && deletingDocId === doc.id;
+                // Pass 2: category / legacy alias matches for unmapped slots
+                for (const doc of sortedDocuments) {
+                  const keys: string[] = [];
+                  if (doc.category) {
+                    keys.push(doc.category);
+                    if (doc.category === "academic_transcript") keys.push("bachelor_transcript");
+                    if (doc.category === "degree_certificate") keys.push("bachelor_degree");
+                    if (doc.category === "english_test") keys.push("ielts_pte");
+                    if (doc.category === "resume_cv") keys.push("cv");
+                    if (doc.category === "financial") keys.push("bank_statement");
+                    if (doc.category === "visa") keys.push("visa_passport");
+                  }
+                  if (doc.docType === "other" && keys.length === 0) {
+                    keys.push("other");
+                  }
 
-                      return (
-                        <div
-                          key={item.typeKey}
-                          className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm text-foreground">
-                                {item.label}
-                              </span>
-                              {doc ? (
-                                <span
-                                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                    doc.status === "verified"
-                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                      : doc.status === "rejected"
-                                      ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                      : "bg-amber-50 text-amber-700 border border-amber-200"
-                                  }`}
-                                >
-                                  {doc.status === "verified"
-                                    ? "Verified"
-                                    : doc.status === "rejected"
-                                    ? "Rejected"
-                                    : "Awaiting Verification"}
+                  for (const key of keys) {
+                    if (!docMap.has(key)) {
+                      docMap.set(key, doc);
+                    }
+                  }
+                }
+
+                return DOCUMENT_CENTER_GROUPS.map((group) => (
+                  <PortalCard key={group.groupKey} className="p-6">
+                    <h4 className="font-display text-base font-bold text-foreground border-b border-border pb-2 mb-4">
+                      {group.title}
+                    </h4>
+
+                    <div className="divide-y divide-border/60">
+                      {group.items.map((item) => {
+                        const doc = docMap.get(item.typeKey);
+
+                        const isAwaitingVerification =
+                          doc &&
+                          (doc.status === "awaiting_verification" ||
+                            doc.status === "pending" ||
+                            doc.status === "uploaded");
+                        const isVerified = doc && doc.status === "verified";
+                        const isRejected = doc && doc.status === "rejected";
+
+                        const isVerifying = doc && verifyingDocId === doc.id;
+                        const isDownloading = doc && downloadingDocId === doc.id;
+
+                        return (
+                          <div
+                            key={item.typeKey}
+                            className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-sm text-foreground">
+                                  {item.label}
                                 </span>
-                              ) : (
-                                <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground border border-border">
-                                  Not Uploaded
-                                </span>
+                                {doc ? (
+                                  <span
+                                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                      isVerified
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        : isRejected
+                                        ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                        : "bg-amber-50 text-amber-700 border border-amber-200"
+                                    }`}
+                                  >
+                                    {isVerified
+                                      ? "Verified"
+                                      : isRejected
+                                      ? "Rejected"
+                                      : "Awaiting Verification"}
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground border border-border">
+                                    Not Uploaded
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-xs text-muted-foreground">{item.description}</p>
+
+                              {doc && (
+                                <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1">
+                                  <p>
+                                    Filename: <strong className="text-foreground">{doc.originalFilename}</strong> ({formatFileSize(doc.fileSize)})
+                                  </p>
+                                  <p>
+                                    Uploaded on: {new Date(doc.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                                  </p>
+                                  {isVerified && doc.verifiedByCounsellorName && (
+                                    <p className="text-emerald-700 font-medium">
+                                      ✓ Verified by {doc.verifiedByCounsellorName} on {doc.verifiedAt ? new Date(doc.verifiedAt).toLocaleDateString("en-GB") : ""}
+                                    </p>
+                                  )}
+                                  {isRejected && doc.rejectionReason && (
+                                    <div className="mt-1 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800">
+                                      <strong>Rejection Reason:</strong> {doc.rejectionReason}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
 
-                            <p className="text-xs text-muted-foreground">{item.description}</p>
-
+                            {/* Action Controls */}
                             {doc && (
-                              <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1">
-                                <p>
-                                  Filename: <strong className="text-foreground">{doc.originalFilename}</strong> ({formatFileSize(doc.fileSize)})
-                                </p>
-                                <p>
-                                  Uploaded on: {new Date(doc.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                                </p>
-                                {doc.status === "verified" && doc.verifiedByCounsellorName && (
-                                  <p className="text-emerald-700 font-medium">
-                                    ✓ Verified by {doc.verifiedByCounsellorName} on {doc.verifiedAt ? new Date(doc.verifiedAt).toLocaleDateString("en-GB") : ""}
-                                  </p>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {/* View Button - Available for all existing files */}
+                                <button
+                                  type="button"
+                                  disabled={isDownloading}
+                                  onClick={() => handleViewDownloadDocument(doc)}
+                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-input bg-background px-2.5 text-xs font-semibold text-brand-blue hover:bg-surface disabled:opacity-50"
+                                >
+                                  {isDownloading ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Eye className="h-3.5 w-3.5" /> View
+                                    </>
+                                  )}
+                                </button>
+
+                                {/* Verify Button - Available ONLY for Awaiting Verification */}
+                                {isAwaitingVerification && (
+                                  <button
+                                    type="button"
+                                    disabled={isVerifying || verifyDocumentMutation.isPending}
+                                    onClick={() => handleVerifyDocument(doc)}
+                                    className="inline-flex h-8 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                                  >
+                                    {isVerifying ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <>
+                                        <CheckCircle2 className="h-3.5 w-3.5" /> Verify
+                                      </>
+                                    )}
+                                  </button>
                                 )}
-                                {doc.status === "rejected" && doc.rejectionReason && (
-                                  <div className="mt-1 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800">
-                                    <strong>Rejection Reason:</strong> {doc.rejectionReason}
-                                  </div>
+
+                                {/* Reject Button - Available ONLY for Awaiting Verification */}
+                                {isAwaitingVerification && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRejectingDoc(doc);
+                                      setRejectionReasonInput(doc.rejectionReason || "");
+                                    }}
+                                    className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5" /> Reject
+                                  </button>
                                 )}
                               </div>
                             )}
                           </div>
-
-                          {/* Action Controls */}
-                          {doc && (
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button
-                                type="button"
-                                disabled={isDownloading}
-                                onClick={() => handleViewDownloadDocument(doc)}
-                                className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-input bg-background px-2.5 text-xs font-semibold text-brand-blue hover:bg-surface disabled:opacity-50"
-                              >
-                                {isDownloading ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <>
-                                    <Eye className="h-3.5 w-3.5" /> View
-                                  </>
-                                )}
-                              </button>
-
-                              {/* Verify Button */}
-                              {doc.status !== "verified" && (
-                                <button
-                                  type="button"
-                                  disabled={isVerifying || verifyDocumentMutation.isPending}
-                                  onClick={() => handleVerifyDocument(doc)}
-                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                                >
-                                  {isVerifying ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <>
-                                      <CheckCircle2 className="h-3.5 w-3.5" /> Verify
-                                    </>
-                                  )}
-                                </button>
-                              )}
-
-                              {/* Reject Button */}
-                              {doc.status !== "rejected" && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRejectingDoc(doc);
-                                    setRejectionReasonInput(doc.rejectionReason || "");
-                                  }}
-                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                                >
-                                  <XCircle className="h-3.5 w-3.5" /> Reject
-                                </button>
-                              )}
-
-                              {/* Delete Button */}
-                              <button
-                                type="button"
-                                disabled={isDeleting}
-                                onClick={() => handleDeleteDocument(doc)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
-                                title="Delete document"
-                              >
-                                {isDeleting ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </PortalCard>
-              ))}
+                        );
+                      })}
+                    </div>
+                  </PortalCard>
+                ));
+              })()}
 
               {/* Upload Document Modal Dialog */}
               {isUploadModalOpen && (
@@ -2540,7 +2627,7 @@ function CounsellorStudentProfilePage() {
                                 setEditingTask(t);
                                 setTaskTitle(t.title);
                                 setTaskDescription(t.description || "");
-                                setTaskDueAt(t.dueAt ? t.dueAt.split("T")[0] : "");
+                                setTaskDueAt(t.dueAt ? (t.dueAt.split("T")[0] ?? "") : "");
                                 setTaskCategory(t.category);
                                 setTaskPriority(t.priority);
                                 setTaskFeedback(null);
@@ -3283,6 +3370,22 @@ function CounsellorStudentProfilePage() {
         student={student}
         isOpen={isEditProfileModalOpen}
         onClose={() => setIsEditProfileModalOpen(false)}
+      />
+
+      {/* Document Preview Modal — inline PDF/image viewer, no auto-download */}
+      <DocumentPreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => {
+          setPreviewModalOpen(false);
+          setPreviewDoc(null);
+          setPreviewUrls({ previewUrl: null, downloadUrl: null });
+          setPreviewError(null);
+        }}
+        doc={previewDoc}
+        previewUrl={previewUrls.previewUrl}
+        downloadUrl={previewUrls.downloadUrl}
+        isLoading={isLoadingPreview}
+        error={previewError}
       />
 
       {/* Document Rejection Modal */}

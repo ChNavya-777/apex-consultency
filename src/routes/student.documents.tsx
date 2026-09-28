@@ -12,6 +12,7 @@ import {
   Eye,
   CheckCircle2,
   Lock,
+  RefreshCw,
 } from "lucide-react";
 import {
   StudentCard,
@@ -25,9 +26,14 @@ import {
   useStudentPortalData,
   usePrepareDocumentUpload,
   useConfirmDocumentUpload,
-  useGetDocumentDownloadUrl,
+  useGetDocumentPreviewUrl,
 } from "@/lib/use-portal-data";
 import {
+  DocumentPreviewModal,
+  type PreviewDocumentInfo,
+} from "@/components/portal/DocumentPreviewModal";
+import {
+  validateDocumentFile,
   DOCUMENT_CENTER_GROUPS,
   documentTypeLabels,
   formatFileSize,
@@ -52,17 +58,36 @@ export const Route = createFileRoute("/student/documents")({
   component: StudentDocumentsPage,
 });
 
+const STATUS_PRIORITY: Record<string, number> = {
+  verified: 4,
+  awaiting_verification: 3,
+  uploaded: 3,
+  rejected: 2,
+  pending: 1,
+  not_uploaded: 0,
+};
+
 function StudentDocumentsPage() {
   const session = useRequireStudent();
   const { data, isLoading, refetch } = useStudentPortalData(session?.email);
 
   const prepareUploadMutation = usePrepareDocumentUpload();
   const confirmUploadMutation = useConfirmDocumentUpload();
-  const getDownloadUrlMutation = useGetDocumentDownloadUrl();
 
   const [uploadingType, setUploadingType] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // Document Preview Modal states
+  const getPreviewUrlMutation = useGetDocumentPreviewUrl();
   const [viewingDocId, setViewingDocId] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<PreviewDocumentInfo | null>(null);
+  const [previewUrls, setPreviewUrls] = useState<{ previewUrl: string | null; downloadUrl: string | null }>({
+    previewUrl: null,
+    downloadUrl: null,
+  });
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   if (!session) return null;
 
@@ -70,21 +95,66 @@ function StudentDocumentsPage() {
   const studentId = profile?.id || session.email;
   const documents: StudentDocument[] = data.documents || [];
 
-  // Map latest uploaded document per docType (or category)
+  // Guarantee newest document first by created_at DESC
+  const sortedDocuments = [...documents].sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+
+  // Map newest uploaded document per docType slot (newest active document wins)
   const docMap = new Map<string, StudentDocument>();
-  for (const doc of documents) {
-    const key = doc.docType || doc.category;
-    if (!docMap.has(key)) {
-      docMap.set(key, doc);
+
+  // Pass 1: exact docType matches (newest wins)
+  for (const doc of sortedDocuments) {
+    if (doc.docType && doc.docType !== "other") {
+      if (!docMap.has(doc.docType)) {
+        docMap.set(doc.docType, doc);
+      }
+    }
+  }
+
+  // Pass 2: category / legacy alias matches for unmapped slots
+  for (const doc of sortedDocuments) {
+    const keys: string[] = [];
+    if (doc.category) {
+      keys.push(doc.category);
+      if (doc.category === "academic_transcript") keys.push("bachelor_transcript");
+      if (doc.category === "degree_certificate") keys.push("bachelor_degree");
+      if (doc.category === "english_test") keys.push("ielts_pte");
+      if (doc.category === "resume_cv") keys.push("cv");
+      if (doc.category === "financial") keys.push("bank_statement");
+      if (doc.category === "visa") keys.push("visa_passport");
+    }
+    if (doc.docType === "other" && keys.length === 0) {
+      keys.push("other");
+    }
+
+    for (const key of keys) {
+      if (!docMap.has(key)) {
+        docMap.set(key, doc);
+      }
     }
   }
 
   async function handleFileUpload(groupKey: string, typeKey: string, file: File) {
     setFeedback(null);
+
+    // 1. Client-side file validation for instant feedback
+    const valResult = validateDocumentFile(file.name, file.type, file.size, typeKey);
+    if (!valResult.valid) {
+      setFeedback({
+        type: "error",
+        message: valResult.error || "Invalid file format or size.",
+      });
+      return;
+    }
+
     setUploadingType(typeKey);
 
+    const existingDoc = docMap.get(typeKey);
+    const isReplacing = !!existingDoc && existingDoc.status !== "not_uploaded";
+
     try {
-      // 1. Prepare signed upload URL
+      // 2. Prepare signed upload URL
       const prepRes = await prepareUploadMutation.mutateAsync({
         studentId,
         filename: file.name,
@@ -94,7 +164,7 @@ function StudentDocumentsPage() {
         docType: typeKey,
       });
 
-      // 2. Upload file directly to Supabase Storage signed URL
+      // 3. Upload file directly to Supabase Storage signed URL
       const uploadRes = await fetch(prepRes.signedUrl, {
         method: "PUT",
         headers: { "Content-Type": file.type },
@@ -105,7 +175,7 @@ function StudentDocumentsPage() {
         throw new Error(`Upload storage request failed (${uploadRes.statusText}).`);
       }
 
-      // 3. Confirm upload metadata record status
+      // 4. Confirm upload metadata record status
       await confirmUploadMutation.mutateAsync({
         studentId,
         documentId: prepRes.documentId,
@@ -113,9 +183,11 @@ function StudentDocumentsPage() {
 
       setFeedback({
         type: "success",
-        message: `${documentTypeLabels[typeKey] || "Document"} uploaded successfully! Awaiting counsellor verification.`,
+        message: `${documentTypeLabels[typeKey] || "Document"} ${
+          isReplacing ? "replaced" : "uploaded"
+        } successfully! Awaiting counsellor verification.`,
       });
-      refetch();
+      await refetch();
     } catch (err) {
       console.error("Document upload error:", err);
       setFeedback({
@@ -129,17 +201,46 @@ function StudentDocumentsPage() {
 
   async function handleViewDocument(doc: StudentDocument) {
     setViewingDocId(doc.id);
+    setPreviewError(null);
+    setPreviewUrls({ previewUrl: null, downloadUrl: null });
+    setPreviewDoc({
+      id: doc.id,
+      originalFilename: doc.originalFilename,
+      fileSize: doc.fileSize,
+      mimeType: doc.mimeType ?? null,
+      docType: doc.docType ?? null,
+      status: doc.status,
+      rejectionReason: doc.rejectionReason ?? null,
+    });
+    setPreviewModalOpen(true);
+    setIsPreviewLoading(true);
+
     try {
-      const res = await getDownloadUrlMutation.mutateAsync({
+      const res = await getPreviewUrlMutation.mutateAsync({
         studentId,
         documentId: doc.id,
       });
-      if (res.signedUrl) {
-        window.open(res.signedUrl, "_blank", "noopener,noreferrer");
-      }
+      setPreviewUrls({
+        previewUrl: res.previewUrl ?? null,
+        downloadUrl: res.downloadUrl ?? null,
+      });
+      // Patch in any extra metadata returned from server
+      setPreviewDoc((prev) =>
+        prev
+          ? {
+              ...prev,
+              mimeType: res.mimeType ?? prev.mimeType ?? null,
+              fileSize: res.fileSize || prev.fileSize,
+              status: res.status || prev.status,
+              rejectionReason:
+                res.rejectionReason ?? prev.rejectionReason ?? null,
+            }
+          : prev
+      );
     } catch (err) {
-      alert("Failed to generate secure download link.");
+      setPreviewError(err instanceof Error ? err.message : "Failed to generate preview.");
     } finally {
+      setIsPreviewLoading(false);
       setViewingDocId(null);
     }
   }
@@ -213,13 +314,14 @@ function StudentDocumentsPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap justify-end">
+                      {/* View button — opens inline preview modal */}
                       {doc && (
                         <button
                           type="button"
                           onClick={() => handleViewDocument(doc)}
                           disabled={viewingDocId === doc.id}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
                         >
                           {viewingDocId === doc.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -230,8 +332,8 @@ function StudentDocumentsPage() {
                         </button>
                       )}
 
-                      {/* Upload / Re-upload Button */}
-                      {status !== "verified" && (
+                      {/* Not Uploaded: Show standard Upload Document button */}
+                      {status === "not_uploaded" && (
                         <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20">
                           {isUploading ? (
                             <>
@@ -241,7 +343,7 @@ function StudentDocumentsPage() {
                           ) : (
                             <>
                               <UploadCloud className="h-3.5 w-3.5" />
-                              {status === "rejected" ? "Re-upload Document" : doc ? "Replace File" : "Upload Document"}
+                              Upload Document
                             </>
                           )}
                           <input
@@ -258,8 +360,75 @@ function StudentDocumentsPage() {
                         </label>
                       )}
 
+                      {/* Awaiting Verification: Show [ Replace File ] and [ 🔒 Awaiting Review ] */}
+                      {(status === "awaiting_verification" || status === "pending" || status === "uploaded") && (
+                        <>
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors">
+                            {isUploading ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Replacing...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
+                                Replace File
+                              </>
+                            )}
+                            <input
+                              type="file"
+                              disabled={isUploading}
+                              className="hidden"
+                              accept={item.typeKey === "passport_photo" ? ".jpg,.jpeg,.png" : ".pdf,.jpg,.jpeg,.png,.doc,.docx"}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileUpload(group.groupKey, item.typeKey, file);
+                                e.target.value = "";
+                              }}
+                            />
+                          </label>
+
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="inline-flex items-center gap-1.5 text-xs text-amber-400 font-medium px-2.5 py-1 bg-amber-500/10 rounded-md border border-amber-500/20">
+                              <Lock className="h-3.5 w-3.5" />
+                              Awaiting Review
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">Waiting for counsellor verification.</span>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Rejected: Show [ Re-upload File ] */}
+                      {status === "rejected" && (
+                        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/20">
+                          {isUploading ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="h-3.5 w-3.5" />
+                              Re-upload File
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            disabled={isUploading}
+                            className="hidden"
+                            accept={item.typeKey === "passport_photo" ? ".jpg,.jpeg,.png" : ".pdf,.jpg,.jpeg,.png,.doc,.docx"}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(group.groupKey, item.typeKey, file);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      )}
+
+                      {/* Verified: Show [ ✓ Verified ] badge */}
                       {status === "verified" && (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium px-2 py-1 bg-emerald-500/10 rounded-md border border-emerald-500/20">
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium px-2.5 py-1 bg-emerald-500/10 rounded-md border border-emerald-500/20">
                           <CheckCircle2 className="h-3.5 w-3.5" /> Verified
                         </span>
                       )}
@@ -267,10 +436,27 @@ function StudentDocumentsPage() {
                   </div>
                 );
               })}
+
             </div>
           </StudentCard>
         ))}
       </div>
+
+      {/* Document Preview Modal */}
+      <DocumentPreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => {
+          setPreviewModalOpen(false);
+          setPreviewDoc(null);
+          setPreviewUrls({ previewUrl: null, downloadUrl: null });
+          setPreviewError(null);
+        }}
+        doc={previewDoc}
+        previewUrl={previewUrls.previewUrl}
+        downloadUrl={previewUrls.downloadUrl}
+        isLoading={isPreviewLoading}
+        error={previewError}
+      />
     </StudentLayout>
   );
 }

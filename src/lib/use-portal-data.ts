@@ -19,6 +19,7 @@ import {
   prepareDocumentUpload,
   confirmDocumentUpload,
   getDocumentDownloadUrl,
+  getDocumentPreviewUrl,
   deleteStudentDocument,
   verifyStudentDocument,
   rejectStudentDocument,
@@ -51,6 +52,7 @@ import {
   type PrepareDocumentUploadInput,
   type ConfirmDocumentUploadInput,
   type GetDocumentDownloadUrlInput,
+  type GetDocumentPreviewUrlInput,
   type DeleteStudentDocumentInput,
   type VerifyStudentDocumentInput,
   type RejectStudentDocumentInput,
@@ -188,6 +190,13 @@ export function useGetDocumentDownloadUrl() {
   });
 }
 
+export function useGetDocumentPreviewUrl() {
+  const fetcher = useServerFn(getDocumentPreviewUrl);
+  return useMutation({
+    mutationFn: (input: GetDocumentPreviewUrlInput) => fetcher({ data: input }),
+  });
+}
+
 export function useDeleteStudentDocument() {
   const queryClient = useQueryClient();
   const fetcher = useServerFn(deleteStudentDocument);
@@ -288,10 +297,11 @@ export function useAdminPortalData() {
 
 export function useStudentPortalData(studentEmail: string | undefined) {
   const fetcher = useServerFn(getStudentPortalData);
+  const normalizedEmail = studentEmail ? studentEmail.trim().toLowerCase() : undefined;
   const query = useQuery({
-    queryKey: ["portal", "student", studentEmail ?? ""],
-    queryFn: () => fetcher({ data: { studentEmail: studentEmail ?? "" } }),
-    enabled: !!studentEmail,
+    queryKey: ["portal", "student", normalizedEmail ?? ""],
+    queryFn: () => fetcher({ data: { studentEmail: normalizedEmail ?? "" } }),
+    enabled: !!normalizedEmail,
     staleTime: 60_000,
   });
   return { ...query, data: query.data ?? empty };

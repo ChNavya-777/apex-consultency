@@ -74,7 +74,7 @@ const description = "Complete consultation session history and management.";
 
 export const Route = createFileRoute("/counsellor/sessions/all")({
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
-    date: typeof search.date === "string" ? search.date : "all",
+    date: typeof search["date"] === "string" ? (search["date"] as string) : "all",
     status: ([
       "all",
       "upcoming",
@@ -83,8 +83,8 @@ export const Route = createFileRoute("/counsellor/sessions/all")({
       "completed",
       "missed",
       "cancelled",
-    ].includes(search.status as string)
-      ? search.status
+    ].includes(search["status"] as string)
+      ? (search["status"] as string)
       : "all") as CounsellorFilterStatus,
   }),
   head: () => ({
@@ -380,7 +380,7 @@ function AllSessionCard({
               Session Rescheduled
             </span>
           )}
-          <SessionStatusBadge status={displayStatus} />
+          <SessionStatusBadge status={displayStatus === "missed" ? "no_show" : displayStatus} />
         </div>
       </div>
 

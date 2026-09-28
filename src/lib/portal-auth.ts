@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { getTabId } from "@/integrations/supabase/tab-storage";
 
 export type PortalRole = "super_admin" | "counsellor" | "student";
 
@@ -110,7 +111,9 @@ const counsellorPasswords: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 const COUNSELLOR_KEY = "apex.portal.counsellors";
-const SESSION_KEY = "apex.portal.session";
+function getPortalSessionKey(): string {
+  return `apex.portal.session.${getTabId()}`;
+}
 
 let counsellors: Counsellor[] = initialCounsellors;
 const listeners = new Set<() => void>();
@@ -121,7 +124,7 @@ function emit() {
 
 function persistCounsellors() {
   try {
-    localStorage.setItem(COUNSELLOR_KEY, JSON.stringify(counsellors));
+    sessionStorage.setItem(COUNSELLOR_KEY, JSON.stringify(counsellors));
   } catch {
     /* ignore */
   }
@@ -129,7 +132,7 @@ function persistCounsellors() {
 
 function loadCounsellors() {
   try {
-    const raw = localStorage.getItem(COUNSELLOR_KEY);
+    const raw = sessionStorage.getItem(COUNSELLOR_KEY);
     if (raw) counsellors = JSON.parse(raw) as Counsellor[];
   } catch {
     /* ignore */
@@ -194,7 +197,7 @@ export type PortalSession = {
 
 function readSession(): PortalSession | null {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    const raw = sessionStorage.getItem(getPortalSessionKey());
     return raw ? (JSON.parse(raw) as PortalSession) : null;
   } catch {
     return null;
@@ -203,8 +206,9 @@ function readSession(): PortalSession | null {
 
 function writeSession(session: PortalSession | null) {
   try {
-    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else localStorage.removeItem(SESSION_KEY);
+    const key = getPortalSessionKey();
+    if (session) sessionStorage.setItem(key, JSON.stringify(session));
+    else sessionStorage.removeItem(key);
   } catch {
     /* ignore */
   }
@@ -283,13 +287,11 @@ export function startStudentSession(name: string, email: string): PortalSession 
 }
 
 
-export function syncTokenCookie(accessToken?: string | null) {
+export function syncTokenCookie(_accessToken?: string | null) {
   if (typeof document === "undefined") return;
-  if (accessToken) {
-    document.cookie = `sb-access-token=${encodeURIComponent(accessToken)}; Path=/; SameSite=Lax; Secure`;
-  } else {
-    document.cookie = "sb-access-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;";
-  }
+  // Always expire and clear any legacy domain-global cookie so tabs never cross-contaminate.
+  // Authentication on server functions is securely transported per-tab via the Authorization: Bearer header.
+  document.cookie = "sb-access-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;";
 }
 
 export function signOut() {

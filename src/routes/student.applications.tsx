@@ -37,6 +37,7 @@ import {
   type StudentApplication,
   type OfferDecisionStatus,
 } from "@/lib/student-applications";
+import { findStudent } from "@/lib/portal-data";
 
 const title = "My Applications & Universities — APEX Student Portal";
 const description = "Track your university shortlists, applications, and offers with APEX Global Education.";
@@ -65,6 +66,9 @@ function StudentApplicationsPage() {
   const [decisionFeedback, setDecisionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   if (!session) return null;
+
+  const profile = findStudent(data.students, session.email);
+  const studentId = profile?.id || session.email;
 
   const shortlists: StudentShortlist[] = data.shortlists || [];
   const applications: StudentApplication[] = data.applications || [];
@@ -103,11 +107,11 @@ function StudentApplicationsPage() {
     setDownloadingDocId(docId);
     try {
       const res = await getDownloadUrlMutation.mutateAsync({
+        studentId,
         documentId: docId,
-        downloadFilename: filename || "Offer_Letter.pdf",
       });
-      if (res.url) {
-        window.open(res.url, "_blank");
+      if (res.signedUrl) {
+        window.open(res.signedUrl, "_blank");
       }
     } catch (err: any) {
       alert("Failed to download offer letter: " + (err?.message || "Error"));

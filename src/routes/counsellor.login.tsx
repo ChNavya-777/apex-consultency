@@ -38,7 +38,7 @@ function CounsellorLoginPage() {
 
         syncTokenCookie(sbData.session.access_token);
 
-        let role: string | null = (sbData.user.user_metadata?.role as string) || null;
+        let role: string | null = (sbData.user.user_metadata?.["role"] as string) || null;
         if (!role) {
           const { data: roleRow } = await supabase
             .from("user_roles")

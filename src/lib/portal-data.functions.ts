@@ -16,6 +16,9 @@ import { sessionSlot } from "@/lib/sessions";
 import type { ConsultationSession, SessionStatus } from "@/lib/sessions";
 
 import type { PortalData, StudentProfile } from "@/lib/portal-data";
+import { isValidStage } from "@/lib/student-tracking";
+import { validateDocumentFile } from "@/lib/student-documents";
+import { validateTaskInput } from "@/lib/student-tasks";
 
 /** Booking/Calendly Sheet ("mentor details"). Overridable without a code change. */
 const BOOKING_SHEET_ID =
@@ -408,11 +411,11 @@ export const getStudentPortalData = createServerFn({ method: "GET" })
       throw new Error("403 Forbidden: Student access required.");
     }
 
-    const targetEmail = authCtx.user.email;
+    const targetEmail = normalizeEmail(authCtx.user.email);
     if (!targetEmail) return { sessions: [], students: [], studentSourceError: null };
 
     const { sessions: all, error: sessionError } = await loadSessions();
-    const mine = all.filter((s) => s.studentEmail === targetEmail);
+    const mine = all.filter((s) => normalizeEmail(s.studentEmail) === targetEmail);
     const { profiles, error } = await loadStudentProfiles();
     const profile =
       profiles.get(targetEmail) ?? placeholderProfile(targetEmail, mine[0]?.studentName ?? "");
@@ -748,35 +751,63 @@ export const getCounsellorStudentProfileData = createServerFn({ method: "GET" })
     };
   });
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Helper to resolve or ensure a student ID exists in public.students table */
 async function resolveOrCreateStudentUuid(studentIdOrEmail: string): Promise<{
   id: string;
   email: string;
 } | null> {
+  if (!studentIdOrEmail) return null;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const normalizedParam = decodeURIComponent(studentIdOrEmail).toLowerCase().trim();
+  const rawParam = decodeURIComponent(String(studentIdOrEmail)).trim();
+  const normalizedParam = rawParam.toLowerCase();
 
-  // 1. Try finding by UUID or email
-  const { data: existing } = await supabaseAdmin
-    .from("students")
-    .select("id, email")
-    .or(`id.eq.${normalizedParam},email.ilike.${normalizedParam}`)
-    .maybeSingle();
+  // 1. If it's a UUID, look up by id
+  if (UUID_REGEX.test(normalizedParam)) {
+    const { data: existingById, error: idError } = await supabaseAdmin
+      .from("students")
+      .select("id, email")
+      .eq("id", normalizedParam)
+      .maybeSingle();
 
-  if (existing) {
-    return { id: existing.id, email: existing.email };
+    if (!idError && existingById) {
+      return { id: existingById.id, email: existingById.email };
+    }
   }
 
-  // 2. If it's an email string and doesn't exist yet, insert a row
+  // 2. Look up by email
   if (normalizedParam.includes("@")) {
+    const { data: existingByEmail, error: emailError } = await supabaseAdmin
+      .from("students")
+      .select("id, email")
+      .ilike("email", normalizedParam)
+      .maybeSingle();
+
+    if (!emailError && existingByEmail) {
+      return { id: existingByEmail.id, email: existingByEmail.email };
+    }
+
+    // 3. If it's an email string and doesn't exist yet, insert a new row
     const { data: inserted, error: insertError } = await supabaseAdmin
       .from("students")
       .insert({ email: normalizedParam })
       .select("id, email")
-      .single();
+      .maybeSingle();
 
     if (!insertError && inserted) {
       return { id: inserted.id, email: inserted.email };
+    }
+
+    // Fallback if concurrent insert / unique constraint was triggered
+    const { data: retryExisting } = await supabaseAdmin
+      .from("students")
+      .select("id, email")
+      .ilike("email", normalizedParam)
+      .maybeSingle();
+
+    if (retryExisting) {
+      return { id: retryExisting.id, email: retryExisting.email };
     }
   }
 
@@ -800,7 +831,7 @@ export const updateStudentTracking = createServerFn({ method: "POST" })
       throw new Error("400 Bad Request: studentId is required.");
     }
 
-    const { isValidStage } = require("@/lib/student-tracking");
+
     if (!isValidStage(newStage)) {
       throw new Error(`400 Bad Request: Invalid stage '${newStage}'.`);
     }
@@ -1150,7 +1181,7 @@ export const prepareDocumentUpload = createServerFn({ method: "POST" })
       throw new Error("400 Bad Request: studentId is required.");
     }
 
-    const { validateDocumentFile } = require("@/lib/student-documents");
+
     const valResult = validateDocumentFile(filename, mimeType, fileSize, docType);
     if (!valResult.valid) {
       throw new Error(`400 Bad Request: ${valResult.error}`);
@@ -1329,6 +1360,26 @@ export const confirmDocumentUpload = createServerFn({ method: "POST" })
 
     const nowIso = new Date().toISOString();
 
+    // Check if there was a previous document for this student and doc_type
+    let previousDocQuery = supabaseAdmin
+      .from("student_documents")
+      .select("id, original_filename, doc_type, status, created_at")
+      .eq("student_id", resolvedStudent.id)
+      .neq("id", data.documentId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (doc.doc_type) {
+      previousDocQuery = previousDocQuery.eq("doc_type", doc.doc_type);
+    } else if (doc.category) {
+      previousDocQuery = previousDocQuery.eq("category", doc.category);
+    }
+
+    const { data: previousDocs } = await previousDocQuery;
+
+    const previousDoc = previousDocs && previousDocs.length > 0 ? previousDocs[0] : null;
+    const isReplacement = !!previousDoc && previousDoc.status !== "rejected";
+
     // Update status to awaiting_verification and clear rejection_reason
     const { error: updateError } = await supabaseAdmin
       .from("student_documents")
@@ -1347,16 +1398,64 @@ export const confirmDocumentUpload = createServerFn({ method: "POST" })
     // Record tracking history
     const { documentTypeLabels } = await import("@/lib/student-documents");
     const docLabel = documentTypeLabels[doc.doc_type || ""] || doc.original_filename;
-    const actionText = doc.status === "rejected" ? "re-uploaded" : "uploaded";
+
+    let historyNotes: string;
+    if (isReplacement && previousDoc) {
+      historyNotes = `Document replaced: ${docLabel} replaced by student with "${doc.original_filename}" (New ID: ${doc.id}, Previous File: "${previousDoc.original_filename}", Previous ID: ${previousDoc.id}). Awaiting verification.`;
+    } else if (previousDoc?.status === "rejected") {
+      historyNotes = `${docLabel} re-uploaded after rejection with "${doc.original_filename}" (ID: ${doc.id}). Awaiting verification.`;
+    } else {
+      historyNotes = `${docLabel} uploaded ("${doc.original_filename}", ID: ${doc.id}) and awaiting verification.`;
+    }
 
     await supabaseAdmin.from("student_tracking_history").insert({
       student_id: resolvedStudent.id,
       stage: "documents",
       changed_by_counsellor_id: authCtx.role !== "student" ? authCtx.user.id : null,
-      changed_by_counsellor_name: authCtx.role !== "student" ? authCtx.user.email : "Student",
-      notes: `${docLabel} ${actionText} and awaiting verification.`,
+      changed_by_counsellor_name: authCtx.role !== "student" ? authCtx.user.email : `Student (${resolvedStudent.email})`,
+      notes: historyNotes,
       created_at: nowIso,
     });
+
+    // Notify assigned counsellor if uploaded or replaced by student
+    try {
+      if (authCtx.role === "student") {
+        const { sessions: allSessions } = await loadSessions();
+        const counsellorSession = allSessions.find(
+          (s) =>
+            ((s.studentId && s.studentId === resolvedStudent.id) ||
+              s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase()) &&
+            s.counsellorEmail
+        );
+
+        if (counsellorSession?.counsellorEmail) {
+          const { data: cRow } = await supabaseAdmin
+            .from("counsellors")
+            .select("auth_user_id")
+            .ilike("email", counsellorSession.counsellorEmail)
+            .maybeSingle();
+
+          if (cRow?.auth_user_id) {
+            const { emitNotification } = await import("@/lib/notifications.server");
+            await emitNotification({
+              recipientUserId: cRow.auth_user_id,
+              recipientRole: "counsellor",
+              type: "action_required" as any,
+              title: isReplacement ? "Document Replaced" : "New Document Uploaded",
+              message: isReplacement
+                ? `${resolvedStudent.email} replaced their ${docLabel} with "${doc.original_filename}". Awaiting verification.`
+                : `${resolvedStudent.email} uploaded ${docLabel} ("${doc.original_filename}"). Awaiting verification.`,
+              studentId: resolvedStudent.id,
+              entityType: "document",
+              entityId: data.documentId,
+              dedupKey: `document:${isReplacement ? "replaced" : "uploaded"}:${data.documentId}`,
+            });
+          }
+        }
+      }
+    } catch (notifErr) {
+      console.warn("[NOTIFICATION_DOC_UPLOAD_WARN]", notifErr);
+    }
 
     const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
     invalidatePortalCache();
@@ -1659,17 +1758,17 @@ export const getDocumentDownloadUrl = createServerFn({ method: "POST" })
       throw new Error("401 Unauthorized: Valid login required.");
     }
 
-    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
-      throw new Error("403 Forbidden: Counsellor access required.");
-    }
-
     const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
     if (!resolvedStudent) {
       throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
     }
 
-    // Verify authorized counsellor
-    if (authCtx.role === "counsellor") {
+    // Role verification
+    if (authCtx.role === "student") {
+      if (authCtx.user.email.toLowerCase() !== resolvedStudent.email.toLowerCase()) {
+        throw new Error("403 Forbidden: You can only view your own documents.");
+      }
+    } else if (authCtx.role === "counsellor") {
       const { sessions: allSessions } = await loadSessions();
       const counsellorSessions = allSessions.filter(
         (s) => s.counsellorEmail === authCtx.user.email,
@@ -1682,6 +1781,8 @@ export const getDocumentDownloadUrl = createServerFn({ method: "POST" })
       if (!isAssigned) {
         throw new Error("403 Forbidden: You are not authorized to view this document.");
       }
+    } else if (authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Unauthorized role.");
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -1700,8 +1801,9 @@ export const getDocumentDownloadUrl = createServerFn({ method: "POST" })
       throw new Error("403 Forbidden: Document does not belong to target student.");
     }
 
-    if (doc.status !== "uploaded") {
-      throw new Error("400 Bad Request: Document is not in uploaded state.");
+    const allowedStatuses = ["awaiting_verification", "verified", "rejected", "uploaded"];
+    if (!allowedStatuses.includes(doc.status)) {
+      throw new Error("400 Bad Request: Document is not in a viewable state.");
     }
 
     // Generate 60-second signed download URL
@@ -1720,6 +1822,112 @@ export const getDocumentDownloadUrl = createServerFn({ method: "POST" })
     };
   });
 
+
+export type GetDocumentPreviewUrlInput = {
+  studentId: string;
+  documentId: string;
+};
+
+/**
+ * Server function to generate a short-lived signed URL for inline preview
+ * of a student document. Unlike getDocumentDownloadUrl, this does NOT set the
+ * download: option so the browser renders the file inline instead of forcing
+ * a download.
+ *
+ * Auth: counsellor/super_admin only.
+ */
+export const getDocumentPreviewUrl = createServerFn({ method: "POST" })
+  .inputValidator((input: GetDocumentPreviewUrlInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const documentId = String(input?.documentId ?? "").trim();
+
+    if (!studentId || !documentId) {
+      throw new Error("400 Bad Request: studentId and documentId are required.");
+    }
+
+    return { studentId, documentId };
+  })
+  .handler(async ({ data, request }) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Role verification
+    if (authCtx.role === "student") {
+      if (authCtx.user.email.toLowerCase() !== resolvedStudent.email.toLowerCase()) {
+        throw new Error("403 Forbidden: You can only view your own documents.");
+      }
+    } else if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to view this document.");
+      }
+    } else if (authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Unauthorized role.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: doc, error: fetchError } = await supabaseAdmin
+      .from("student_documents")
+      .select("*")
+      .eq("id", data.documentId)
+      .maybeSingle();
+
+    if (fetchError || !doc) {
+      throw new Error(`404 Not Found: Document record '${data.documentId}' not found.`);
+    }
+
+    if (doc.student_id !== resolvedStudent.id) {
+      throw new Error("403 Forbidden: Document does not belong to target student.");
+    }
+
+    const allowedStatuses = ["awaiting_verification", "verified", "rejected", "uploaded"];
+    if (!allowedStatuses.includes(doc.status)) {
+      throw new Error("400 Bad Request: Document is not in a viewable state.");
+    }
+
+    // 120-second signed URL WITHOUT download: param so browser renders inline
+    const { data: signedData, error: signedError } = await supabaseAdmin.storage
+      .from("student-documents")
+      .createSignedUrl(doc.storage_path, 120);
+
+    if (signedError || !signedData) {
+      console.error("Failed to generate signed preview URL:", signedError?.message);
+      throw new Error("500 Internal Server Error: Failed to generate secure preview URL.");
+    }
+
+    // Separate download URL with Content-Disposition: attachment
+    const { data: dlData } = await supabaseAdmin.storage
+      .from("student-documents")
+      .createSignedUrl(doc.storage_path, 120, { download: doc.original_filename });
+
+    return {
+      previewUrl: signedData.signedUrl,
+      downloadUrl: dlData?.signedUrl ?? signedData.signedUrl,
+      filename: doc.original_filename,
+      mimeType: doc.mime_type,
+      fileSize: Number(doc.file_size),
+      status: doc.status,
+      rejectionReason: doc.rejection_reason,
+    };
+  });
 export type DeleteStudentDocumentInput = {
   studentId: string;
   documentId: string;
@@ -1842,7 +2050,7 @@ export const createStudentTask = createServerFn({ method: "POST" })
       throw new Error("400 Bad Request: studentId is required.");
     }
 
-    const { validateTaskInput } = require("@/lib/student-tasks");
+
     const val = validateTaskInput(title, priority, category);
     if (!val.valid) {
       throw new Error(`400 Bad Request: ${val.error}`);
@@ -2463,15 +2671,15 @@ export const createUniversity = createServerFn({ method: "POST" })
 
 export type CreateShortlistInput = {
   studentId: string;
-  universityId?: string;
-  universityName?: string;
-  universityCountry?: string;
-  universityCity?: string | null;
+  universityId?: string | undefined;
+  universityName?: string | undefined;
+  universityCountry?: string | undefined;
+  universityCity?: string | null | undefined;
   courseName: string;
   degreeLevel: string;
   intake: string;
-  category?: import("@/lib/student-applications").ShortlistCategory;
-  notes?: string | null;
+  category?: import("@/lib/student-applications").ShortlistCategory | undefined;
+  notes?: string | null | undefined;
 };
 
 export const createShortlist = createServerFn({ method: "POST" })
