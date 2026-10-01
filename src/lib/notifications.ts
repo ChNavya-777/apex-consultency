@@ -21,11 +21,28 @@ export type ApplicationNotificationType =
 
 export type SystemNotificationType = "system.webhook_failed";
 
+export type DocumentNotificationType =
+  | "document.uploaded"
+  | "document.replaced"
+  | "document.verified"
+  | "document.rejected"
+  | "document_verified"
+  | "document_rejected"
+  | "action_required";
+
+export type TrackingNotificationType =
+  | "tracking.stage_advanced"
+  | "tracking.stage_corrected"
+  | "tracking.journey_completed";
+
 export type NotificationType =
   | SessionNotificationType
   | TaskNotificationType
   | ApplicationNotificationType
-  | SystemNotificationType;
+  | SystemNotificationType
+  | DocumentNotificationType
+  | TrackingNotificationType
+  | string;
 
 export type NotificationEntityType = "session" | "task" | "application" | "document" | "student";
 

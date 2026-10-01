@@ -32,7 +32,7 @@ function StudentSessionDetailPage() {
    * Looked up only within the signed-in student's own sessions (already filtered server-side),
    * so one student can never load another student's consultation.
    */
-  const record = findSession(data.sessions, id);
+  const record = findSession(data?.sessions ?? [], id);
 
   return (
     <StudentLayout session={session} nav={studentNav}>

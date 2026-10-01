@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -50,7 +50,10 @@ import { counsellorNav } from "@/components/portal/nav";
 import { EditStudentModal } from "@/components/portal/EditStudentModal";
 import {
   useCounsellorStudentProfileData,
-  useUpdateStudentTracking,
+  useSaveStudentStageProgress,
+  useAdvanceStudentStage,
+  useCompleteStudentJourney,
+  useCorrectStudentStage,
   useCreateStudentNote,
   useTogglePinStudentNote,
   useDeleteStudentNote,
@@ -205,9 +208,14 @@ function CounsellorStudentProfilePage() {
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
   // Tracking form state
-  const [selectedStage, setSelectedStage] = useState<TrackingStage | "">("");
   const [stageNotes, setStageNotes] = useState("");
   const [trackingFeedback, setTrackingFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // Reset tracking form state when switching students
+  useEffect(() => {
+    setStageNotes("");
+    setTrackingFeedback(null);
+  }, [id]);
 
   // Note form state
   const [noteText, setNoteText] = useState("");
@@ -307,8 +315,17 @@ function CounsellorStudentProfilePage() {
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
   const [verifyingDocId, setVerifyingDocId] = useState<string | null>(null);
 
+  // Stage Correction state
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [correctionTargetStage, setCorrectionTargetStage] = useState<TrackingStage | "">("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
+
   // Mutations
-  const updateTrackingMutation = useUpdateStudentTracking();
+  const saveProgressMutation = useSaveStudentStageProgress();
+  const advanceStageMutation = useAdvanceStudentStage();
+  const completeJourneyMutation = useCompleteStudentJourney();
+  const correctStageMutation = useCorrectStudentStage();
   const createNoteMutation = useCreateStudentNote();
   const togglePinNoteMutation = useTogglePinStudentNote();
   const deleteNoteMutation = useDeleteStudentNote();
@@ -352,34 +369,124 @@ function CounsellorStudentProfilePage() {
     (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
   );
 
+  const isJourneyCompleted = Boolean(tracking?.currentTracking?.journeyCompleted);
   const currentStage = tracking?.currentTracking?.currentStage || "consultation";
   const currentStageIndex = getStageIndex(currentStage);
+  const nextStageObj = TRACKING_STAGES[currentStageIndex + 1];
+  const isFinalStage = currentStage === "pre_departure";
 
   const activeTasks = tasks.filter((t) => t.status === "pending" || t.status === "in_progress");
   const overdueTasks = tasks.filter((t) => isTaskOverdue(t.dueAt, t.status));
 
-  // Handle stage update submission
-  async function handleUpdateTracking(e: React.FormEvent) {
+  // Save progress on current stage
+  async function handleSaveProgress(e: React.FormEvent) {
     e.preventDefault();
     setTrackingFeedback(null);
-    const stageToUpdate = selectedStage || currentStage;
 
     try {
-      await updateTrackingMutation.mutateAsync({
+      await saveProgressMutation.mutateAsync({
         studentId: id,
-        newStage: stageToUpdate,
         stageNotes: stageNotes.trim() || null,
       });
 
-      setTrackingFeedback({ type: "success", message: "Student tracking updated successfully." });
-      setStageNotes("");
-      setSelectedStage("");
-      refetch();
+      setTrackingFeedback({ type: "success", message: "Stage progress saved successfully." });
+      await refetch();
     } catch (err) {
       setTrackingFeedback({
         type: "error",
-        message: err instanceof Error ? err.message : "Failed to update tracking state.",
+        message: err instanceof Error && err.message && !err.message.includes("is not defined")
+          ? err.message
+          : "Unable to update student tracking. Please try again.",
       });
+    }
+  }
+
+  // Advance student to next canonical stage
+  async function handleAdvanceStage() {
+    if (isFinalStage || !nextStageObj) return;
+    setTrackingFeedback(null);
+
+    try {
+      const result = await advanceStageMutation.mutateAsync({
+        studentId: id,
+        stageNotes: stageNotes.trim() || null,
+      });
+
+      const advancedToLabel = trackingStageLabels[result.currentStage] || result.currentStage;
+      setStageNotes("");
+      setTrackingFeedback({ type: "success", message: `Student advanced to ${advancedToLabel}.` });
+      await refetch();
+    } catch (err) {
+      setTrackingFeedback({
+        type: "error",
+        message: err instanceof Error && err.message && !err.message.includes("is not defined")
+          ? err.message
+          : "Unable to update student tracking. Please try again.",
+      });
+    }
+  }
+
+  // Complete student journey at final stage (Pre-Departure)
+  async function handleCompleteJourney() {
+    if (!isFinalStage || isJourneyCompleted) return;
+    setTrackingFeedback(null);
+
+    try {
+      await completeJourneyMutation.mutateAsync({
+        studentId: id,
+        stageNotes: stageNotes.trim() || null,
+      });
+
+      setStageNotes("");
+      setTrackingFeedback({ type: "success", message: "Student journey completed successfully." });
+      await refetch();
+    } catch (err) {
+      setTrackingFeedback({
+        type: "error",
+        message: err instanceof Error && err.message && !err.message.includes("is not defined")
+          ? err.message
+          : "Unable to complete student journey. Please try again.",
+      });
+    }
+  }
+
+  // Controlled backward stage correction
+  async function handleConfirmStageChange() {
+    const trimmedReason = correctionReason.trim();
+    if (!correctionTargetStage) {
+      setCorrectionError("Please select an earlier target stage.");
+      return;
+    }
+    if (!trimmedReason) {
+      setCorrectionError("A reason is required for stage correction.");
+      return;
+    }
+
+    setCorrectionError(null);
+    setTrackingFeedback(null);
+
+    try {
+      const result = await correctStageMutation.mutateAsync({
+        studentId: id,
+        targetStage: correctionTargetStage,
+        reason: trimmedReason,
+      });
+
+      setIsCorrectionModalOpen(false);
+      setCorrectionReason("");
+      setCorrectionTargetStage("");
+      const correctedLabel = trackingStageLabels[result.currentStage] || result.currentStage;
+      setTrackingFeedback({
+        type: "success",
+        message: `Stage corrected to ${correctedLabel}. Journey status updated to active.`,
+      });
+      await refetch();
+    } catch (err) {
+      setCorrectionError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Unable to perform stage correction. Please try again.",
+      );
     }
   }
 
@@ -1663,23 +1770,61 @@ function CounsellorStudentProfilePage() {
                     <h3 className="font-display text-base font-semibold text-foreground">
                       Student Journey Stepper
                     </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Current Stage:{" "}
-                      <span className="font-semibold text-brand-blue">
-                        {trackingStageLabels[currentStage] || currentStage}
-                      </span>
+                    <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                      {isJourneyCompleted ? (
+                        <>
+                          Status:{" "}
+                          <span className="font-semibold text-emerald-700">
+                            Journey Completed
+                          </span>
+                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-700/10">
+                            All 7 Stages Completed
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          Current Stage:{" "}
+                          <span className="font-semibold text-brand-blue">
+                            {trackingStageLabels[currentStage] || currentStage}
+                          </span>
+                          <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-brand-blue ring-1 ring-inset ring-blue-700/10">
+                            In Progress
+                          </span>
+                        </>
+                      )}
                     </p>
                   </div>
-                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 border border-blue-200">
-                    Stage {currentStageIndex + 1} of {TRACKING_STAGES.length}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    {currentStageIndex > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCorrectionTargetStage(TRACKING_STAGES[currentStageIndex - 1]?.key || "");
+                          setCorrectionReason("");
+                          setCorrectionError(null);
+                          setIsCorrectionModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 border border-slate-200 rounded-xl px-3 py-1.5 transition-colors bg-white hover:bg-slate-50 shadow-2xs"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                        Change Current Stage
+                      </button>
+                    )}
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold border ${
+                      isJourneyCompleted
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-blue-50 text-blue-700 border-blue-200"
+                    }`}>
+                      {isJourneyCompleted ? "Completed" : `Stage ${currentStageIndex + 1} of ${TRACKING_STAGES.length}`}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Stepper Bar */}
                 <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
                   {TRACKING_STAGES.map((stg, idx) => {
-                    const isPassed = idx < currentStageIndex;
-                    const isCurrent = idx === currentStageIndex;
+                    const isPassed = isJourneyCompleted || idx < currentStageIndex;
+                    const isCurrent = !isJourneyCompleted && idx === currentStageIndex;
                     return (
                       <div
                         key={stg.key}
@@ -1725,12 +1870,8 @@ function CounsellorStudentProfilePage() {
                 </div>
               </PortalCard>
 
-              {/* Stage Update Control Form */}
-              <PortalCard className="p-6 space-y-4">
-                <h3 className="font-display text-base font-semibold text-foreground border-b border-border pb-3">
-                  Update Student Stage
-                </h3>
-
+              {/* Stage Update Control Panel */}
+              <PortalCard className="p-6 space-y-6">
                 {trackingFeedback && (
                   <div
                     className={`rounded-xl p-3 text-xs font-medium ${
@@ -1743,55 +1884,133 @@ function CounsellorStudentProfilePage() {
                   </div>
                 )}
 
-                <form onSubmit={handleUpdateTracking} className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                        Select Target Stage
-                      </label>
-                      <select
-                        value={selectedStage || currentStage}
-                        onChange={(e) => setSelectedStage(e.target.value as TrackingStage)}
-                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-                      >
-                        {TRACKING_STAGES.map((stg) => (
-                          <option key={stg.key} value={stg.key}>
-                            {stg.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                        Transition Notes (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={stageNotes}
-                        onChange={(e) => setStageNotes(e.target.value)}
-                        placeholder="e.g. Student selected 3 UK universities and submitted application"
-                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-                      />
-                    </div>
+                {/* Section 1: Counsellor Progress / Notes */}
+                <form onSubmit={handleSaveProgress} className="space-y-4">
+                  <div>
+                    <h4 className="font-display text-sm font-semibold text-foreground mb-1">
+                      Counsellor Progress & Notes
+                    </h4>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {isJourneyCompleted ? (
+                        <span>Student journey is completed and notes are locked.</span>
+                      ) : (
+                        <span>
+                          Record updates or notes while remaining on{" "}
+                          <span className="font-semibold text-foreground">
+                            {trackingStageLabels[currentStage] || currentStage}
+                          </span>
+                          .
+                        </span>
+                      )}
+                    </p>
+                    <textarea
+                      rows={3}
+                      value={stageNotes}
+                      disabled={isJourneyCompleted}
+                      onChange={(e) => setStageNotes(e.target.value)}
+                      placeholder={isJourneyCompleted ? "Journey completed" : "e.g. Student selected 3 UK universities and submitted application"}
+                      className="w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue disabled:opacity-60"
+                    />
                   </div>
 
-                  <div className="flex justify-end pt-2">
+                  <div className="flex justify-end">
                     <button
                       type="submit"
-                      disabled={updateTrackingMutation.isPending}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-blue px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-blue/90 disabled:opacity-50"
+                      disabled={saveProgressMutation.isPending || isJourneyCompleted}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
                     >
-                      {updateTrackingMutation.isPending ? (
+                      {saveProgressMutation.isPending ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin" /> Saving Stage...
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
                         </>
                       ) : (
-                        "Save Tracking Stage"
+                        "Save Progress"
                       )}
                     </button>
                   </div>
                 </form>
+
+                <hr className="border-border" />
+
+                {/* Section 2: When Current Stage is Complete */}
+                <div>
+                  <h4 className="font-display text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                    When This Stage Is Complete
+                  </h4>
+                  {isJourneyCompleted ? (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 text-xs text-emerald-800 flex items-center gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                      <div>
+                        <p className="font-semibold text-emerald-900">
+                          Final Stage Completed — Student Journey Complete
+                        </p>
+                        <p className="text-emerald-700 mt-0.5">
+                          This student has successfully completed all 7 stages of their study abroad journey.
+                        </p>
+                      </div>
+                    </div>
+                  ) : isFinalStage ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                          Final Stage: Stage 7 of 7
+                        </p>
+                        <p className="font-display text-base font-bold text-foreground mt-0.5">
+                          Pre-Departure & Boarding
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Accommodation, forex, flight booking, and orientation.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCompleteJourney}
+                        disabled={completeJourneyMutation.isPending}
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+                      >
+                        {completeJourneyMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" /> Completing...
+                          </>
+                        ) : (
+                          <>
+                            Complete Pre-Departure → Mark Journey Complete
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-brand-blue">
+                          Next Stage: Stage {currentStageIndex + 2} of {TRACKING_STAGES.length}
+                        </p>
+                        <p className="font-display text-base font-bold text-foreground mt-0.5">
+                          {nextStageObj?.label}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {nextStageObj?.description}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAdvanceStage}
+                        disabled={advanceStageMutation.isPending}
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-blue px-5 text-xs font-semibold text-white transition-colors hover:bg-brand-blue/90 disabled:opacity-50 shadow-sm"
+                      >
+                        {advanceStageMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" /> Advancing...
+                          </>
+                        ) : (
+                          <>
+                            Complete {trackingStageLabels[currentStage] || currentStage} → Move to {nextStageObj?.label}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </PortalCard>
 
               {/* Stage Transition Audit History Timeline */}
@@ -1806,36 +2025,167 @@ function CounsellorStudentProfilePage() {
                   </p>
                 ) : (
                   <div className="relative space-y-4 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
-                    {tracking?.history.map((hist) => (
-                      <div key={hist.id} className="relative pl-8 space-y-1">
-                        <div className="absolute left-1.5 top-1.5 h-3 w-3 rounded-full bg-brand-blue ring-4 ring-background" />
-                        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                          <span>{trackingStageLabels[hist.previousStage || "consultation"]}</span>
-                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-brand-blue">
-                            {trackingStageLabels[hist.stage] || hist.stage}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Updated by {hist.changedByCounsellorName || "Counsellor"} on{" "}
-                          {new Date(hist.createdAt).toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                        {hist.notes && (
-                          <p className="mt-1 rounded-lg bg-surface p-2 text-xs text-foreground border border-border">
-                            {hist.notes}
+                    {tracking?.history.map((hist) => {
+                      const isCorrection =
+                        hist.notes?.startsWith("STAGE CORRECTION:") ||
+                        (hist.previousStage && getStageIndex(hist.stage) < getStageIndex(hist.previousStage));
+                      const cleanNotes = hist.notes?.replace(/^STAGE CORRECTION:\s*/, "") || "";
+
+                      return (
+                        <div key={hist.id} className="relative pl-8 space-y-1">
+                          <div
+                            className={`absolute left-1.5 top-1.5 h-3 w-3 rounded-full ring-4 ring-background ${
+                              isCorrection ? "bg-amber-500" : "bg-brand-blue"
+                            }`}
+                          />
+                          <div className="flex items-center gap-2 text-xs font-semibold text-foreground flex-wrap">
+                            {isCorrection && (
+                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                                Stage Corrected
+                              </span>
+                            )}
+                            <span>{trackingStageLabels[hist.previousStage || "consultation"]}</span>
+                            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                            <span className={isCorrection ? "text-amber-700 font-bold" : "text-brand-blue"}>
+                              {trackingStageLabels[hist.stage] || hist.stage}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Changed by {hist.changedByCounsellorName || "Counsellor"} on{" "}
+                            {new Date(hist.createdAt).toLocaleString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </p>
-                        )}
-                      </div>
-                    ))}
+                          {cleanNotes && (
+                            <p className="mt-1 rounded-lg bg-surface p-2 text-xs text-foreground border border-border">
+                              {isCorrection && <span className="font-semibold text-amber-900 block mb-0.5">Reason:</span>}
+                              {cleanNotes}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </PortalCard>
+            </div>
+          )}
+
+          {/* Stage Correction Controlled Modal */}
+          {isCorrectionModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl border border-border space-y-5">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <div>
+                    <h3 className="font-display text-base font-bold text-foreground">
+                      Change Current Stage
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Correct workflow mistake by moving backward to an earlier stage.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCorrectionModalOpen(false);
+                      setCorrectionReason("");
+                      setCorrectionError(null);
+                    }}
+                    className="text-muted-foreground hover:text-foreground text-sm font-semibold p-1 rounded-lg hover:bg-muted"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                      Current Stage:
+                    </label>
+                    <div className="rounded-xl border border-border bg-muted/30 p-3 text-xs font-semibold text-foreground flex items-center justify-between">
+                      <span>
+                        {trackingStageLabels[currentStage] || currentStage} — Stage {currentStageIndex + 1} of {TRACKING_STAGES.length}
+                      </span>
+                      {isJourneyCompleted && (
+                        <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                          Completed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                      Change to:
+                    </label>
+                    <select
+                      value={correctionTargetStage}
+                      onChange={(e) => setCorrectionTargetStage(e.target.value as TrackingStage)}
+                      className="w-full rounded-xl border border-input bg-background p-2.5 text-xs font-semibold text-foreground focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                    >
+                      <option value="" disabled>Select earlier stage...</option>
+                      {TRACKING_STAGES.slice(0, currentStageIndex).map((stg, idx) => (
+                        <option key={stg.key} value={stg.key}>
+                          {stg.label} — Stage {idx + 1}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                      Reason for Change: <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={correctionReason}
+                      onChange={(e) => {
+                        setCorrectionReason(e.target.value);
+                        if (correctionError) setCorrectionError(null);
+                      }}
+                      placeholder="e.g. Student returned to visa processing after offer conditions changed."
+                      className="w-full rounded-xl border border-input bg-background p-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                    />
+                    {correctionError && (
+                      <p className="text-xs font-medium text-rose-600 mt-1">
+                        {correctionError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCorrectionModalOpen(false);
+                      setCorrectionReason("");
+                      setCorrectionError(null);
+                    }}
+                    className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-xl border border-border transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!correctionTargetStage || !correctionReason.trim() || correctStageMutation.isPending}
+                    onClick={handleConfirmStageChange}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-xl transition-colors shadow-xs"
+                  >
+                    {correctStageMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Changing...
+                      </>
+                    ) : (
+                      "Confirm Stage Change"
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

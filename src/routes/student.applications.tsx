@@ -67,11 +67,11 @@ function StudentApplicationsPage() {
 
   if (!session) return null;
 
-  const profile = findStudent(data.students, session.email);
+  const profile = findStudent(data?.students ?? [], session.email);
   const studentId = profile?.id || session.email;
 
-  const shortlists: StudentShortlist[] = data.shortlists || [];
-  const applications: StudentApplication[] = data.applications || [];
+  const shortlists: StudentShortlist[] = data?.shortlists || [];
+  const applications: StudentApplication[] = data?.applications || [];
 
   const offers = applications
     .filter((a) => a.offer !== null)

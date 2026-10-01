@@ -803,6 +803,8 @@ export type Database = {
           created_at: string
           current_stage: string
           id: string
+          journey_completed?: boolean | null
+          journey_completed_at?: string | null
           stage_notes: string | null
           student_id: string
           updated_at: string
@@ -813,6 +815,8 @@ export type Database = {
           created_at?: string
           current_stage?: string
           id?: string
+          journey_completed?: boolean | null
+          journey_completed_at?: string | null
           stage_notes?: string | null
           student_id: string
           updated_at?: string
@@ -823,6 +827,8 @@ export type Database = {
           created_at?: string
           current_stage?: string
           id?: string
+          journey_completed?: boolean | null
+          journey_completed_at?: string | null
           stage_notes?: string | null
           student_id?: string
           updated_at?: string

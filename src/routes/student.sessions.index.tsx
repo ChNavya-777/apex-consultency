@@ -39,10 +39,10 @@ function StudentSessionsPage() {
    */
   const sessions = useMemo(
     () =>
-      data.sessions.filter((s) =>
+      (data?.sessions ?? []).filter((s) =>
         tab === "Upcoming" ? isSessionUpcoming(s) : !isSessionUpcoming(s),
       ),
-    [data.sessions, tab],
+    [data?.sessions, tab],
   );
 
   if (!session) return null;

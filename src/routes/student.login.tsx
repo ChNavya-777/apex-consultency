@@ -4,7 +4,7 @@ import { useState } from "react";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { syncTokenCookie } from "@/lib/portal-auth";
+import { startStudentSession, syncTokenCookie } from "@/lib/portal-auth";
 import { createStudentAccount, studentLogin } from "@/lib/student-auth.functions";
 import { cn } from "@/lib/utils";
 import { site } from "@/data/site";
@@ -93,9 +93,17 @@ function StudentLoginPage() {
                     });
 
                     if (!sbErr && sbData.session) {
-                      syncTokenCookie(sbData.session.access_token);
+                      let activeSession = sbData.session;
+                      const { data: verified } = await supabase.auth.getSession();
+                      if (verified?.session) {
+                        activeSession = verified.session;
+                      }
+                      const studentName =
+                        (activeSession.user.user_metadata?.["full_name"] as string) || "";
+                      startStudentSession(studentName, trimmedEmail);
+                      syncTokenCookie(activeSession.access_token);
                       setPassword("");
-                      void navigate({ to: afterSignIn, replace: true });
+                      await navigate({ to: afterSignIn, replace: true });
                       return;
                     }
 
@@ -116,9 +124,17 @@ function StudentLoginPage() {
                     });
 
                     if (!sbErr2 && sbData2.session) {
-                      syncTokenCookie(sbData2.session.access_token);
+                      let activeSession = sbData2.session;
+                      const { data: verified } = await supabase.auth.getSession();
+                      if (verified?.session) {
+                        activeSession = verified.session;
+                      }
+                      const studentName =
+                        (activeSession.user.user_metadata?.["full_name"] as string) || "";
+                      startStudentSession(studentName, trimmedEmail);
+                      syncTokenCookie(activeSession.access_token);
                       setPassword("");
-                      void navigate({ to: afterSignIn, replace: true });
+                      await navigate({ to: afterSignIn, replace: true });
                       return;
                     } else {
                       setError("Authentication session setup failed. Please try signing in again.");
@@ -244,10 +260,16 @@ function StudentLoginPage() {
                   });
 
                   if (!sbErr && sbData.session) {
-                    syncTokenCookie(sbData.session.access_token);
+                    let activeSession = sbData.session;
+                    const { data: verified } = await supabase.auth.getSession();
+                    if (verified?.session) {
+                      activeSession = verified.session;
+                    }
+                    startStudentSession(name, mail);
+                    syncTokenCookie(activeSession.access_token);
                     setNewPassword("");
                     setConfirmPassword("");
-                    void navigate({ to: "/consultation" });
+                    await navigate({ to: "/consultation" });
                   } else {
                     setCreateError("Account created, but automatic sign-in failed. Please sign in.");
                     setMode("signin");

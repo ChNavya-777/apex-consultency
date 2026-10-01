@@ -16,7 +16,7 @@ import { sessionSlot } from "@/lib/sessions";
 import type { ConsultationSession, SessionStatus } from "@/lib/sessions";
 
 import type { PortalData, StudentProfile } from "@/lib/portal-data";
-import { isValidStage } from "@/lib/student-tracking";
+import { isValidStage, getStageIndex, TRACKING_STAGES, type TrackingStage } from "@/lib/student-tracking";
 import { validateDocumentFile } from "@/lib/student-documents";
 import { validateTaskInput } from "@/lib/student-tasks";
 
@@ -314,7 +314,7 @@ export const getCounsellorPortalData = createServerFn({ method: "GET" })
   .inputValidator((input: { counsellorEmail: string }) => ({
     counsellorEmail: normalizeEmail(input?.counsellorEmail),
   }))
-  .handler(async ({ request }): Promise<PortalData> => {
+  .handler(async ({ request }: any): Promise<PortalData> => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -347,7 +347,7 @@ export const getCounsellorPortalData = createServerFn({ method: "GET" })
 
 /** Every session and student — Super Admin scope. */
 export const getAdminPortalData = createServerFn({ method: "GET" }).handler(
-  async ({ request }): Promise<PortalData> => {
+  async ({ request }: any): Promise<PortalData> => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -399,7 +399,7 @@ export const getStudentPortalData = createServerFn({ method: "GET" })
   .inputValidator((input: { studentEmail: string }) => ({
     studentEmail: normalizeEmail(input?.studentEmail),
   }))
-  .handler(async ({ request }): Promise<PortalData> => {
+  .handler(async ({ request }: any): Promise<PortalData> => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -420,6 +420,10 @@ export const getStudentPortalData = createServerFn({ method: "GET" })
     const profile =
       profiles.get(targetEmail) ?? placeholderProfile(targetEmail, mine[0]?.studentName ?? "");
 
+    let trackingData: {
+      currentTracking: import("@/lib/student-tracking").StudentTrackingState;
+      history: import("@/lib/student-tracking").TrackingHistoryItem[];
+    } | undefined = undefined;
     let documentsData: import("@/lib/student-documents").StudentDocument[] = [];
     let tasksData: import("@/lib/student-tasks").StudentTask[] = [];
     let shortlistsData: import("@/lib/student-applications").StudentShortlist[] = [];
@@ -430,18 +434,21 @@ export const getStudentPortalData = createServerFn({ method: "GET" })
       if (resolvedStudent?.id) {
         profile.id = resolvedStudent.id;
         const {
+          fetchStudentTrackingData,
           fetchStudentDocumentsData,
           fetchStudentTasksData,
           fetchStudentShortlistsData,
           fetchStudentApplicationsData,
         } = await import("@/lib/portal-supabase.server");
 
-        const [doc, tsk, sl, app] = await Promise.all([
+        const [tr, doc, tsk, sl, app] = await Promise.all([
+          fetchStudentTrackingData(resolvedStudent.id),
           fetchStudentDocumentsData(resolvedStudent.id),
           fetchStudentTasksData(resolvedStudent.id),
           fetchStudentShortlistsData(resolvedStudent.id),
           fetchStudentApplicationsData(resolvedStudent.id),
         ]);
+        trackingData = tr;
         documentsData = doc;
         tasksData = tsk;
         shortlistsData = sl;
@@ -454,6 +461,7 @@ export const getStudentPortalData = createServerFn({ method: "GET" })
     return {
       sessions: mine,
       students: [profile],
+      tracking: trackingData,
       documents: documentsData,
       tasks: tasksData,
       shortlists: shortlistsData,
@@ -503,7 +511,7 @@ export const updateSessionOutcome = createServerFn({ method: "POST" })
       notes: rawNotes ? rawNotes.trim() : null,
     };
   })
-  .handler(async ({ data, request }): Promise<UpdateSessionOutcomeResponse> => {
+  .handler(async ({ data, request }: any): Promise<UpdateSessionOutcomeResponse> => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -605,7 +613,7 @@ export const getCounsellorStudentProfileData = createServerFn({ method: "GET" })
   .inputValidator((input: { studentId: string }) => ({
     studentId: String(input?.studentId ?? "").trim(),
   }))
-  .handler(async ({ data, request }): Promise<CounsellorStudentProfileResponse> => {
+  .handler(async ({ data, request }: any): Promise<CounsellorStudentProfileResponse> => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -690,10 +698,13 @@ export const getCounsellorStudentProfileData = createServerFn({ method: "GET" })
       return s.studentEmail.toLowerCase() === targetStudent.email.toLowerCase();
     });
 
-    let trackingData = {
+    let trackingData: {
+      currentTracking: import("@/lib/student-tracking").StudentTrackingState;
+      history: import("@/lib/student-tracking").TrackingHistoryItem[];
+    } = {
       currentTracking: {
         studentId: targetStudent.id ?? "",
-        currentStage: "consultation" as const,
+        currentStage: "consultation",
         updatedByCounsellorId: null,
         updatedByCounsellorName: null,
         stageNotes: null,
@@ -838,7 +849,7 @@ export const updateStudentTracking = createServerFn({ method: "POST" })
 
     return { studentId, newStage, stageNotes };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async ({ data, request }: any) => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -900,8 +911,8 @@ export const updateStudentTracking = createServerFn({ method: "POST" })
 
     const nowIso = new Date().toISOString();
 
-    // Upsert student_tracking
-    const { error: upsertError } = await supabaseAdmin
+    // Upsert student_tracking and read back the newly persisted record
+    const { data: upsertData, error: upsertError } = await supabaseAdmin
       .from("student_tracking")
       .upsert({
         student_id: resolvedStudent.id,
@@ -910,12 +921,17 @@ export const updateStudentTracking = createServerFn({ method: "POST" })
         updated_by_counsellor_name: counsellorName,
         stage_notes: data.stageNotes,
         updated_at: nowIso,
-      }, { onConflict: "student_id" });
+      }, { onConflict: "student_id" })
+      .select("current_stage, updated_at")
+      .maybeSingle();
 
     if (upsertError) {
       console.error(`Failed to update tracking for student ${resolvedStudent.id}:`, upsertError.message);
       throw new Error(`500 Internal Server Error: ${upsertError.message}`);
     }
+
+    const newlySavedStage = (upsertData?.current_stage as TrackingStage) || data.newStage;
+    const newlySavedUpdatedAt = upsertData?.updated_at || nowIso;
 
     // Record history ONLY if stage actually changed
     if (isStageChanged) {
@@ -934,6 +950,24 @@ export const updateStudentTracking = createServerFn({ method: "POST" })
       if (historyError) {
         console.error(`Failed to insert tracking history:`, historyError.message);
       }
+
+      // Emit student notification for stage advancement
+      try {
+        const { emitStudentNotification } = await import("@/lib/notifications.server");
+        const { trackingStageLabels } = await import("@/lib/student-tracking");
+        const stageName = (trackingStageLabels as Record<string, string>)[data.newStage] || data.newStage;
+        await emitStudentNotification(resolvedStudent.id, {
+          type: "tracking.stage_advanced",
+          title: "Tracking Stage Updated",
+          message: `Your application journey has moved to the ${stageName} stage.`,
+          entityType: "student",
+          entityId: resolvedStudent.id,
+          studentId: resolvedStudent.id,
+          dedupKey: `tracking:stage:${resolvedStudent.id}:${data.newStage}`,
+        });
+      } catch (notifErr) {
+        console.warn("[NOTIF_EMIT_STAGE_ADVANCED_WARN]", notifErr);
+      }
     }
 
     const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
@@ -941,10 +975,568 @@ export const updateStudentTracking = createServerFn({ method: "POST" })
 
     return {
       success: true,
-      currentStage: data.newStage,
-      updatedAt: nowIso,
+      currentStage: newlySavedStage,
+      updatedAt: newlySavedUpdatedAt,
     };
   });
+
+export type SaveProgressInput = {
+  studentId: string;
+  stageNotes?: string | null;
+};
+
+/** Server function to save progress notes without changing the current stage or adding history */
+export const saveStudentStageProgress = createServerFn({ method: "POST" })
+  .inputValidator((input: SaveProgressInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const stageNotes = input?.stageNotes != null ? String(input.stageNotes).trim() : null;
+
+    if (!studentId) {
+      throw new Error("400 Bad Request: studentId is required.");
+    }
+
+    return { studentId, stageNotes };
+  })
+  .handler(async ({ data, request }: any) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to update this student's tracking.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch existing tracking row to preserve current_stage
+    const { data: existingTracking } = await supabaseAdmin
+      .from("student_tracking")
+      .select("current_stage")
+      .eq("student_id", resolvedStudent.id)
+      .maybeSingle();
+
+    const currentStage = (existingTracking?.current_stage as TrackingStage) || "consultation";
+
+    let counsellorId: string | null = null;
+    let counsellorName: string | null = authCtx.user.email;
+
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id, full_name")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+
+    if (cRow) {
+      counsellorId = cRow.id;
+      counsellorName = cRow.full_name || authCtx.user.email;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    const { data: upsertData, error: upsertError } = await supabaseAdmin
+      .from("student_tracking")
+      .upsert(
+        {
+          student_id: resolvedStudent.id,
+          current_stage: currentStage,
+          updated_by_counsellor_id: counsellorId,
+          updated_by_counsellor_name: counsellorName,
+          stage_notes: data.stageNotes,
+          updated_at: nowIso,
+        },
+        { onConflict: "student_id" },
+      )
+      .select("current_stage, updated_at")
+      .maybeSingle();
+
+    if (upsertError) {
+      console.error(`Failed to save progress for student ${resolvedStudent.id}:`, upsertError.message);
+      throw new Error(`500 Internal Server Error: ${upsertError.message}`);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return {
+      success: true,
+      currentStage: (upsertData?.current_stage as TrackingStage) || currentStage,
+      updatedAt: upsertData?.updated_at || nowIso,
+    };
+  });
+
+export type AdvanceStageInput = {
+  studentId: string;
+  stageNotes?: string | null;
+};
+
+/** Server function to advance a student to the next canonical tracking stage and record transition history */
+export const advanceStudentStage = createServerFn({ method: "POST" })
+  .inputValidator((input: AdvanceStageInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const stageNotes = input?.stageNotes != null ? String(input.stageNotes).trim() : null;
+
+    if (!studentId) {
+      throw new Error("400 Bad Request: studentId is required.");
+    }
+
+    return { studentId, stageNotes };
+  })
+  .handler(async ({ data, request }: any) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to update this student's tracking.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch existing tracking row
+    const { data: existingTracking } = await supabaseAdmin
+      .from("student_tracking")
+      .select("current_stage")
+      .eq("student_id", resolvedStudent.id)
+      .maybeSingle();
+
+    const previousStage = (existingTracking?.current_stage as TrackingStage) || "consultation";
+    const currentIndex = getStageIndex(previousStage);
+    const nextStageObj = TRACKING_STAGES[currentIndex + 1];
+
+    if (!nextStageObj) {
+      throw new Error("400 Bad Request: Student is already at the final tracking stage.");
+    }
+
+    const nextStageKey = nextStageObj.key;
+
+    let counsellorId: string | null = null;
+    let counsellorName: string | null = authCtx.user.email;
+
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id, full_name")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+
+    if (cRow) {
+      counsellorId = cRow.id;
+      counsellorName = cRow.full_name || authCtx.user.email;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // Upsert student_tracking to advance stage
+    const { data: upsertData, error: upsertError } = await supabaseAdmin
+      .from("student_tracking")
+      .upsert(
+        {
+          student_id: resolvedStudent.id,
+          current_stage: nextStageKey,
+          updated_by_counsellor_id: counsellorId,
+          updated_by_counsellor_name: counsellorName,
+          stage_notes: data.stageNotes,
+          updated_at: nowIso,
+        },
+        { onConflict: "student_id" },
+      )
+      .select("current_stage, updated_at")
+      .maybeSingle();
+
+    if (upsertError) {
+      console.error(`Failed to advance stage for student ${resolvedStudent.id}:`, upsertError.message);
+      throw new Error(`500 Internal Server Error: ${upsertError.message}`);
+    }
+
+    // Insert history row for stage transition
+    const { error: historyError } = await supabaseAdmin
+      .from("student_tracking_history")
+      .insert({
+        student_id: resolvedStudent.id,
+        stage: nextStageKey,
+        previous_stage: previousStage,
+        changed_by_counsellor_id: counsellorId,
+        changed_by_counsellor_name: counsellorName,
+        notes: data.stageNotes,
+        created_at: nowIso,
+      });
+
+    if (historyError) {
+      console.error(`Failed to insert tracking history:`, historyError.message);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return {
+      success: true,
+      currentStage: (upsertData?.current_stage as TrackingStage) || nextStageKey,
+      previousStage,
+      updatedAt: upsertData?.updated_at || nowIso,
+    };
+  });
+
+export type CompleteJourneyInput = {
+  studentId: string;
+  stageNotes?: string | null;
+};
+
+/** Server function to mark a student's study abroad journey as complete at Stage 7 (Pre-Departure) */
+export const completeStudentJourney = createServerFn({ method: "POST" })
+  .inputValidator((input: CompleteJourneyInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const stageNotes = input?.stageNotes != null ? String(input.stageNotes).trim() : null;
+
+    if (!studentId) {
+      throw new Error("400 Bad Request: studentId is required.");
+    }
+
+    return { studentId, stageNotes };
+  })
+  .handler(async ({ data, request }: any) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to update this student's tracking.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch existing tracking row
+    const { data: existingTracking } = await supabaseAdmin
+      .from("student_tracking")
+      .select("current_stage, journey_completed")
+      .eq("student_id", resolvedStudent.id)
+      .maybeSingle();
+
+    const currentStage = (existingTracking?.current_stage as TrackingStage) || "consultation";
+
+    if (currentStage !== "pre_departure") {
+      throw new Error("400 Bad Request: Student journey can only be marked complete at the Pre-Departure stage.");
+    }
+
+    let counsellorId: string | null = null;
+    let counsellorName: string | null = authCtx.user.email;
+
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id, full_name")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+
+    if (cRow) {
+      counsellorId = cRow.id;
+      counsellorName = cRow.full_name || authCtx.user.email;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // Mark journey_completed = true while preserving current_stage = 'pre_departure'
+    const { data: upsertData, error: upsertError } = await supabaseAdmin
+      .from("student_tracking")
+      .upsert(
+        {
+          student_id: resolvedStudent.id,
+          current_stage: "pre_departure",
+          journey_completed: true,
+          journey_completed_at: nowIso,
+          updated_by_counsellor_id: counsellorId,
+          updated_by_counsellor_name: counsellorName,
+          stage_notes: data.stageNotes,
+          updated_at: nowIso,
+        },
+        { onConflict: "student_id" },
+      )
+      .select("current_stage, journey_completed, journey_completed_at, updated_at")
+      .maybeSingle();
+
+    if (upsertError) {
+      console.error(`Failed to complete journey for student ${resolvedStudent.id}:`, upsertError.message);
+      throw new Error(`500 Internal Server Error: ${upsertError.message}`);
+    }
+
+    // Insert history completion row
+    const { error: historyError } = await supabaseAdmin
+      .from("student_tracking_history")
+      .insert({
+        student_id: resolvedStudent.id,
+        stage: "pre_departure",
+        previous_stage: "pre_departure",
+        changed_by_counsellor_id: counsellorId,
+        changed_by_counsellor_name: counsellorName,
+        notes: data.stageNotes || "Student journey completed.",
+        created_at: nowIso,
+      });
+
+    if (historyError) {
+      console.error(`Failed to insert tracking history:`, historyError.message);
+    }
+
+    // Emit student notification for journey completion
+    try {
+      const { emitStudentNotification } = await import("@/lib/notifications.server");
+      await emitStudentNotification(resolvedStudent.id, {
+        type: "tracking.journey_completed",
+        title: "Congratulations! Journey Complete",
+        message: "Your study abroad journey with APEX Global Education is officially completed! Best wishes on your international studies!",
+        entityType: "student",
+        entityId: resolvedStudent.id,
+        studentId: resolvedStudent.id,
+        dedupKey: `tracking:completed:${resolvedStudent.id}`,
+      });
+    } catch (notifErr) {
+      console.warn("[NOTIF_EMIT_JOURNEY_COMPLETE_WARN]", notifErr);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return {
+      success: true,
+      currentStage: "pre_departure" as TrackingStage,
+      journeyCompleted: true,
+      journeyCompletedAt: upsertData?.journey_completed_at || nowIso,
+      updatedAt: upsertData?.updated_at || nowIso,
+    };
+  });
+
+export type CorrectStageInput = {
+  studentId: string;
+  targetStage: TrackingStage;
+  reason: string;
+};
+
+/** Server function to perform controlled backward stage correction for a student with mandatory audit reason */
+export const correctStudentStage = createServerFn({ method: "POST" })
+  .inputValidator((input: CorrectStageInput) => {
+    const studentId = String(input?.studentId ?? "").trim();
+    const targetStage = String(input?.targetStage ?? "").trim() as TrackingStage;
+    const reason = String(input?.reason ?? "").trim();
+
+    if (!studentId) {
+      throw new Error("400 Bad Request: studentId is required.");
+    }
+    if (!isValidStage(targetStage)) {
+      throw new Error("400 Bad Request: Invalid target stage.");
+    }
+    if (!reason) {
+      throw new Error("400 Bad Request: A valid reason is required for stage correction.");
+    }
+
+    return { studentId, targetStage, reason };
+  })
+  .handler(async ({ data, request }: any) => {
+    const { getAuthenticatedContext } = await import("@/lib/server-auth");
+    const authCtx = await getAuthenticatedContext(request);
+
+    if (!authCtx) {
+      throw new Error("401 Unauthorized: Valid login required.");
+    }
+
+    if (authCtx.role !== "counsellor" && authCtx.role !== "super_admin") {
+      throw new Error("403 Forbidden: Counsellor access required.");
+    }
+
+    const resolvedStudent = await resolveOrCreateStudentUuid(data.studentId);
+    if (!resolvedStudent) {
+      throw new Error(`404 Not Found: Student '${data.studentId}' not found.`);
+    }
+
+    // Verify authorized counsellor
+    if (authCtx.role === "counsellor") {
+      const { sessions: allSessions } = await loadSessions();
+      const counsellorSessions = allSessions.filter(
+        (s) => s.counsellorEmail === authCtx.user.email,
+      );
+      const isAssigned = counsellorSessions.some(
+        (s) =>
+          (s.studentId && s.studentId === resolvedStudent.id) ||
+          s.studentEmail.toLowerCase() === resolvedStudent.email.toLowerCase(),
+      );
+      if (!isAssigned) {
+        throw new Error("403 Forbidden: You are not authorized to update this student's tracking.");
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch existing tracking row
+    const { data: existingTracking } = await supabaseAdmin
+      .from("student_tracking")
+      .select("current_stage, journey_completed")
+      .eq("student_id", resolvedStudent.id)
+      .maybeSingle();
+
+    const currentStage = (existingTracking?.current_stage as TrackingStage) || "consultation";
+    const currentIndex = getStageIndex(currentStage);
+    const targetIndex = getStageIndex(data.targetStage);
+
+    if (targetIndex >= currentIndex) {
+      throw new Error("400 Bad Request: Stage correction destination must be strictly earlier than the current stage.");
+    }
+
+    let counsellorId: string | null = null;
+    let counsellorName: string | null = authCtx.user.email;
+
+    const { data: cRow } = await supabaseAdmin
+      .from("counsellors")
+      .select("id, full_name")
+      .ilike("email", authCtx.user.email)
+      .maybeSingle();
+
+    if (cRow) {
+      counsellorId = cRow.id;
+      counsellorName = cRow.full_name || authCtx.user.email;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // Upsert student_tracking to corrected stage, resetting completion state
+    const { data: upsertData, error: upsertError } = await supabaseAdmin
+      .from("student_tracking")
+      .upsert(
+        {
+          student_id: resolvedStudent.id,
+          current_stage: data.targetStage,
+          journey_completed: false,
+          journey_completed_at: null,
+          updated_by_counsellor_id: counsellorId,
+          updated_by_counsellor_name: counsellorName,
+          stage_notes: data.reason,
+          updated_at: nowIso,
+        },
+        { onConflict: "student_id" },
+      )
+      .select("current_stage, journey_completed, journey_completed_at, updated_at")
+      .maybeSingle();
+
+    if (upsertError) {
+      console.error(`Failed to correct stage for student ${resolvedStudent.id}:`, upsertError.message);
+      throw new Error(`500 Internal Server Error: ${upsertError.message}`);
+    }
+
+    // Insert history row for stage correction
+    const { error: historyError } = await supabaseAdmin
+      .from("student_tracking_history")
+      .insert({
+        student_id: resolvedStudent.id,
+        stage: data.targetStage,
+        previous_stage: currentStage,
+        changed_by_counsellor_id: counsellorId,
+        changed_by_counsellor_name: counsellorName,
+        notes: `STAGE CORRECTION: ${data.reason}`,
+        created_at: nowIso,
+      });
+
+    if (historyError) {
+      console.error(`Failed to insert tracking history for stage correction:`, historyError.message);
+    }
+
+    // Emit student notification for stage correction
+    try {
+      const { emitStudentNotification } = await import("@/lib/notifications.server");
+      const { trackingStageLabels } = await import("@/lib/student-tracking");
+      const stageName = (trackingStageLabels as Record<string, string>)[data.targetStage] || data.targetStage;
+      await emitStudentNotification(resolvedStudent.id, {
+        type: "tracking.stage_corrected",
+        title: "Stage Correction Update",
+        message: `Your journey stage has been adjusted to ${stageName}. Reason: ${data.reason}`,
+        entityType: "student",
+        entityId: resolvedStudent.id,
+        studentId: resolvedStudent.id,
+        dedupKey: `tracking:correction:${resolvedStudent.id}:${data.targetStage}:${nowIso}`,
+      });
+    } catch (notifErr) {
+      console.warn("[NOTIF_EMIT_STAGE_CORRECTION_WARN]", notifErr);
+    }
+
+    const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
+    invalidatePortalCache();
+
+    return {
+      success: true,
+      currentStage: (upsertData?.current_stage as TrackingStage) || data.targetStage,
+      previousStage: currentStage,
+      journeyCompleted: false,
+      journeyCompletedAt: null,
+      updatedAt: upsertData?.updated_at || nowIso,
+    };
+  });
+
+
 
 export type CreateNoteInput = {
   studentId: string;
@@ -970,7 +1562,7 @@ export const createStudentNote = createServerFn({ method: "POST" })
 
     return { studentId, noteText, category, isPinned };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async ({ data, request }: any) => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -1077,7 +1669,7 @@ export const togglePinStudentNote = createServerFn({ method: "POST" })
 
     return { noteId, studentId, isPinned };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async ({ data, request }: any) => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -1124,7 +1716,7 @@ export const deleteStudentNote = createServerFn({ method: "POST" })
 
     return { noteId, studentId };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async ({ data, request }: any) => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -1189,7 +1781,7 @@ export const prepareDocumentUpload = createServerFn({ method: "POST" })
 
     return { studentId, filename, fileSize, mimeType, category, docType };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async ({ data, request }: any) => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -1306,7 +1898,8 @@ export const confirmDocumentUpload = createServerFn({ method: "POST" })
 
     return { studentId, documentId };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -1478,7 +2071,8 @@ export const verifyStudentDocument = createServerFn({ method: "POST" })
     }
     return { studentId, documentId };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -1577,17 +2171,20 @@ export const verifyStudentDocument = createServerFn({ method: "POST" })
 
     // Emit notification to student
     if (resolvedStudent.id) {
-      const { emitNotification } = await import("@/lib/notifications.server");
-      await emitNotification({
-        recipientUserId: resolvedStudent.id,
-        recipientRole: "student",
-        type: "document_verified",
-        title: "Document Verified",
-        message: `Your ${docLabel} has been verified by your counsellor.`,
-        studentId: resolvedStudent.id,
-        entityType: "document",
-        entityId: data.documentId,
-      });
+      try {
+        const { emitStudentNotification } = await import("@/lib/notifications.server");
+        await emitStudentNotification(resolvedStudent.id, {
+          type: "document_verified",
+          title: "Document Verified",
+          message: `Your ${docLabel} has been verified by your counsellor.`,
+          studentId: resolvedStudent.id,
+          entityType: "document",
+          entityId: data.documentId,
+          dedupKey: `document:verified:${data.documentId}`,
+        });
+      } catch (notifErr) {
+        console.warn("[NOTIF_EMIT_DOC_VERIFIED_WARN]", notifErr);
+      }
     }
 
     const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
@@ -1618,7 +2215,8 @@ export const rejectStudentDocument = createServerFn({ method: "POST" })
 
     return { studentId, documentId, rejectionReason };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -1714,17 +2312,20 @@ export const rejectStudentDocument = createServerFn({ method: "POST" })
 
     // Emit notification to student
     if (resolvedStudent.id) {
-      const { emitNotification } = await import("@/lib/notifications.server");
-      await emitNotification({
-        recipientUserId: resolvedStudent.id,
-        recipientRole: "student",
-        type: "document_rejected",
-        title: "Document Action Required",
-        message: `Your ${docLabel} document requires action. Reason: ${data.rejectionReason}`,
-        studentId: resolvedStudent.id,
-        entityType: "document",
-        entityId: data.documentId,
-      });
+      try {
+        const { emitStudentNotification } = await import("@/lib/notifications.server");
+        await emitStudentNotification(resolvedStudent.id, {
+          type: "document_rejected",
+          title: "Document Action Required",
+          message: `Your ${docLabel} document requires action. Reason: ${data.rejectionReason}`,
+          studentId: resolvedStudent.id,
+          entityType: "document",
+          entityId: data.documentId,
+          dedupKey: `document:rejected:${data.documentId}:${nowIso}`,
+        });
+      } catch (notifErr) {
+        console.warn("[NOTIF_EMIT_DOC_REJECTED_WARN]", notifErr);
+      }
     }
 
     const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
@@ -1750,7 +2351,8 @@ export const getDocumentDownloadUrl = createServerFn({ method: "POST" })
 
     return { studentId, documentId };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -1847,7 +2449,8 @@ export const getDocumentPreviewUrl = createServerFn({ method: "POST" })
 
     return { studentId, documentId };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -1945,7 +2548,8 @@ export const deleteStudentDocument = createServerFn({ method: "POST" })
 
     return { studentId, documentId };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -2058,7 +2662,8 @@ export const createStudentTask = createServerFn({ method: "POST" })
 
     return { studentId, title, description, category, priority, dueAt };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -2136,7 +2741,7 @@ export const createStudentTask = createServerFn({ method: "POST" })
         student_id: resolvedStudent.id,
         stage: "follow_up",
         changed_by_counsellor_id: counsellorId,
-        changed_by_counsellor_name: authCtx.user.name || authCtx.user.email,
+        changed_by_counsellor_name: authCtx.user.email,
         notes: `📋 Follow-up task created: "${data.title}"`,
         created_at: new Date().toISOString(),
       });
@@ -2146,30 +2751,16 @@ export const createStudentTask = createServerFn({ method: "POST" })
 
     // Isolated notification emission (after commit)
     try {
-      const { emitNotification } = await import("@/lib/notifications.server");
-      await emitNotification({
-        recipientUserId: authCtx.user.id,
-        recipientRole: (authCtx.role as any) ?? "counsellor",
+      const { emitStudentNotification } = await import("@/lib/notifications.server");
+      await emitStudentNotification(resolvedStudent.id, {
         type: "task.assigned",
-        title: "New Task Created",
-        message: `Task assigned: "${data.title}"`,
+        title: "New Task Assigned",
+        message: data.description ? `Task assigned: "${data.title}" — ${data.description}` : `Task assigned: "${data.title}"`,
         entityType: "task",
         entityId: inserted.id,
         studentId: resolvedStudent.id,
+        dedupKey: `task:assigned:${inserted.id}`,
       });
-
-      if (data.category === "documents" || data.category === "student" || data.priority === "urgent" || data.priority === "high") {
-        await emitNotification({
-          recipientUserId: resolvedStudent.id,
-          recipientRole: "student",
-          type: "action_required",
-          title: "Action Required",
-          message: `Please review task: "${data.title}"`,
-          entityType: "task",
-          entityId: inserted.id,
-          studentId: resolvedStudent.id,
-        });
-      }
     } catch (notifErr) {
       console.warn("[NOTIF_EMIT_CREATE_TASK_WARN]", notifErr);
     }
@@ -2200,7 +2791,8 @@ export const updateStudentTaskStatus = createServerFn({ method: "POST" })
 
     return { taskId, studentId, status };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -2264,16 +2856,16 @@ export const updateStudentTaskStatus = createServerFn({ method: "POST" })
     };
 
     if (isCompleting) {
-      updatePayload.completed_at = new Date().toISOString();
-      updatePayload.completed_by_counsellor_id = counsellorId;
+      updatePayload['completed_at'] = new Date().toISOString();
+      updatePayload['completed_by_counsellor_id'] = counsellorId;
     } else if (isReopening) {
-      updatePayload.completed_at = null;
-      updatePayload.completed_by_counsellor_id = null;
+      updatePayload['completed_at'] = null;
+      updatePayload['completed_by_counsellor_id'] = null;
     }
 
     const { error: updateError } = await supabaseAdmin
       .from("student_tasks")
-      .update(updatePayload)
+      .update(updatePayload as any)
       .eq("id", data.taskId);
 
     if (updateError) {
@@ -2307,7 +2899,7 @@ export const updateStudentTaskStatus = createServerFn({ method: "POST" })
         student_id: resolvedStudent.id,
         stage: "follow_up",
         changed_by_counsellor_id: counsellorId,
-        changed_by_counsellor_name: authCtx.user.name || authCtx.user.email,
+        changed_by_counsellor_name: authCtx.user.email,
         notes: `${statusIcon} Follow-up ${statusAction}: "${existingTask.title}"`,
         created_at: new Date().toISOString(),
       });
@@ -2349,7 +2941,8 @@ export const updateStudentTask = createServerFn({ method: "POST" })
 
     return { taskId, studentId, title, description, category, priority, dueAt };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -2408,15 +3001,15 @@ export const updateStudentTask = createServerFn({ method: "POST" })
       updated_at: new Date().toISOString(),
     };
 
-    if (data.title !== undefined) updatePayload.title = data.title;
-    if (data.description !== undefined) updatePayload.description = data.description;
-    if (data.category !== undefined) updatePayload.category = data.category;
-    if (data.priority !== undefined) updatePayload.priority = data.priority;
-    if (data.dueAt !== undefined) updatePayload.due_at = data.dueAt;
+    if (data.title !== undefined) updatePayload['title'] = data.title;
+    if (data.description !== undefined) updatePayload['description'] = data.description;
+    if (data.category !== undefined) updatePayload['category'] = data.category;
+    if (data.priority !== undefined) updatePayload['priority'] = data.priority;
+    if (data.dueAt !== undefined) updatePayload['due_at'] = data.dueAt;
 
     const { error: updateError } = await supabaseAdmin
       .from("student_tasks")
-      .update(updatePayload)
+      .update(updatePayload as any)
       .eq("id", data.taskId);
 
     if (updateError) {
@@ -2432,7 +3025,7 @@ export const updateStudentTask = createServerFn({ method: "POST" })
         student_id: resolvedStudent.id,
         stage: "follow_up",
         changed_by_counsellor_id: counsellorId,
-        changed_by_counsellor_name: authCtx.user.name || authCtx.user.email,
+        changed_by_counsellor_name: authCtx.user.email,
         notes: `✏ Follow-up task updated: "${data.title || existingTask.title}"`,
         created_at: new Date().toISOString(),
       });
@@ -2460,7 +3053,8 @@ export const deleteStudentTask = createServerFn({ method: "POST" })
 
     return { taskId, studentId };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -2530,7 +3124,8 @@ export const deleteStudentTask = createServerFn({ method: "POST" })
 
 /** Server function to fetch tasks across assigned students for the Counsellor Dashboard */
 export const getCounsellorDashboardTasksData = createServerFn({ method: "GET" })
-  .handler(async ({ request }) => {
+  .handler(async (ctx: any) => {
+    const request = ctx.request as Request | undefined;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 
@@ -2585,7 +3180,8 @@ export const getCounsellorDashboardTasksData = createServerFn({ method: "GET" })
 /* ------------------------------------------------------------------ */
 
 export const getUniversities = createServerFn({ method: "GET" })
-  .handler(async ({ request }) => {
+  .handler(async (ctx: any) => {
+    const request = ctx.request as Request | undefined;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
     if (!authCtx) throw new Error("401 Unauthorized: Valid login required.");
@@ -2613,7 +3209,8 @@ export const createUniversity = createServerFn({ method: "POST" })
       websiteUrl: input?.websiteUrl ? String(input.websiteUrl).trim() : null,
     };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
     if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
@@ -2707,7 +3304,8 @@ export const createShortlist = createServerFn({ method: "POST" })
       notes: input?.notes ? String(input.notes).trim() : null,
     };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async (ctx: any) => {
+    const { data, request } = ctx;
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
     if (!authCtx || (authCtx.role !== "counsellor" && authCtx.role !== "super_admin")) {
@@ -2805,10 +3403,11 @@ export const createShortlist = createServerFn({ method: "POST" })
     const uniName = data.universityName || (await supabaseAdmin.from("universities").select("name").eq("id", targetUniId).maybeSingle()).data?.name || "University";
     await supabaseAdmin.from("student_tracking_history").insert({
       student_id: resolved.id,
-      actor_role: authCtx.role,
-      actor_id: authCtx.user.id,
-      event_type: "university_shortlisted",
-      description: `🎓 Shortlisted ${uniName} for ${data.courseName} (${data.intake}).`,
+      stage: "university_shortlisting",
+      changed_by_counsellor_id: counsellorId,
+      changed_by_counsellor_name: authCtx.user.email,
+      notes: `🎓 Shortlisted ${uniName} for ${data.courseName} (${data.intake}).`,
+      created_at: new Date().toISOString(),
     });
 
     const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
@@ -2816,16 +3415,15 @@ export const createShortlist = createServerFn({ method: "POST" })
 
     // Notify student
     try {
-      const { emitNotification } = await import("@/lib/notifications.server");
-      await emitNotification({
-        recipientUserId: resolved.id,
-        recipientRole: "student",
+      const { emitStudentNotification } = await import("@/lib/notifications.server");
+      await emitStudentNotification(resolved.id, {
         type: "university.shortlisted",
         title: "University Shortlisted",
         message: `🎓 ${uniName} (${data.courseName}) has been added to your shortlist.`,
-        entityType: "shortlist",
+        entityType: "application",
         entityId: inserted.id,
         studentId: resolved.id,
+        dedupKey: `shortlist:added:${inserted.id}`,
       });
     } catch (notifErr) {
       console.warn("[NOTIF_EMIT_SHORTLIST_WARN]", notifErr);
@@ -2896,10 +3494,11 @@ export const updateShortlistStatus = createServerFn({ method: "POST" })
     const uniName = (shortlist as any).universities?.name || "University";
     await supabaseAdmin.from("student_tracking_history").insert({
       student_id: shortlist.student_id,
-      actor_role: authCtx.role,
-      actor_id: authCtx.user.id,
-      event_type: "shortlist_updated",
-      description: `🎓 Shortlist status updated to ${data.status} for ${uniName}.`,
+      stage: "university_shortlisting",
+      changed_by_counsellor_id: counsellorId,
+      changed_by_counsellor_name: authCtx.user.email,
+      notes: `🎓 Shortlist status updated to ${data.status} for ${uniName}.`,
+      created_at: new Date().toISOString(),
     });
 
     const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
@@ -3042,7 +3641,7 @@ export const updateApplicationStatus = createServerFn({ method: "POST" })
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: app } = await supabaseAdmin.from("student_applications").select("id, student_id, status").eq("id", data.applicationId).single();
+    const { data: app } = await supabaseAdmin.from("student_applications").select("id, student_id, status, course_name").eq("id", data.applicationId).single();
     if (!app) throw new Error("404 Not Found: Application not found.");
 
     if (authCtx.role !== "super_admin") {
@@ -3086,17 +3685,16 @@ export const updateApplicationStatus = createServerFn({ method: "POST" })
 
     // Isolated notification emission (after commit)
     try {
-      const { emitNotification } = await import("@/lib/notifications.server");
+      const { emitStudentNotification } = await import("@/lib/notifications.server");
       const notifType = data.status === "action_required" ? "app.action_required" : "app.status_changed";
-      await emitNotification({
-        recipientUserId: authCtx.user.id,
-        recipientRole: (authCtx.role as any) ?? "counsellor",
+      await emitStudentNotification(app.student_id, {
         type: notifType,
         title: data.status === "action_required" ? "Action Required on Application" : "Application Status Updated",
-        message: `Application status moved to ${data.status.replace("_", " ")}.`,
+        message: `Your application for ${app.course_name || "course"} status moved to ${data.status.replace("_", " ")}.`,
         entityType: "application",
         entityId: data.applicationId,
         studentId: app.student_id,
+        dedupKey: `app:status:${data.applicationId}:${data.status}`,
       });
     } catch (notifErr) {
       console.warn("[NOTIF_EMIT_APP_STATUS_WARN]", notifErr);
@@ -3212,16 +3810,16 @@ export const recordApplicationDecision = createServerFn({ method: "POST" })
 
     // Isolated notification emission (after commit)
     try {
-      const { emitNotification } = await import("@/lib/notifications.server");
-      await emitNotification({
-        recipientUserId: authCtx.user.id,
-        recipientRole: (authCtx.role as any) ?? "counsellor",
+      const { emitStudentNotification } = await import("@/lib/notifications.server");
+      const isOffer = data.offerType === "conditional_offer" || data.offerType === "unconditional_offer";
+      await emitStudentNotification(app.student_id, {
         type: "app.decision_recorded",
-        title: "Application Decision Recorded",
-        message: `Decision/offer recorded (${data.offerType}) for application.`,
+        title: isOffer ? "Congratulations! Offer Received" : "Application Decision Recorded",
+        message: `An official decision (${data.offerType.replace("_", " ")}) has been recorded for your application.`,
         entityType: "application",
         entityId: data.applicationId,
         studentId: app.student_id,
+        dedupKey: `app:decision:${data.applicationId}:${data.offerType}`,
       });
     } catch (notifErr) {
       console.warn("[NOTIF_EMIT_APP_DECISION_WARN]", notifErr);
@@ -3296,11 +3894,55 @@ export const updateOfferDecisionStatus = createServerFn({ method: "POST" })
 
     await supabaseAdmin.from("student_tracking_history").insert({
       student_id: studentId,
-      actor_role: authCtx.role,
-      actor_id: authCtx.user.id,
-      event_type: "offer_decision_updated",
-      description: `${icon} Offer ${actionText} for ${uniName}.`,
+      stage: "decision_submission",
+      changed_by_counsellor_id: authCtx.role === "counsellor" ? authCtx.user.id : null,
+      changed_by_counsellor_name: authCtx.role === "student" ? "Student" : (authCtx.user.email || "Counsellor"),
+      notes: `${icon} Offer ${actionText} for ${uniName}.`,
+      created_at: new Date().toISOString(),
     });
+
+    // Isolated notification emission
+    try {
+      if (authCtx.role === "student") {
+        const { sessions } = await loadSessions();
+        const counsellorSession = sessions.find((s) => s.studentId === studentId);
+        if (counsellorSession?.counsellorEmail) {
+          const { data: cRow } = await supabaseAdmin
+            .from("counsellors")
+            .select("auth_user_id")
+            .ilike("email", counsellorSession.counsellorEmail)
+            .maybeSingle();
+
+          if (cRow?.auth_user_id) {
+            const { emitNotification } = await import("@/lib/notifications.server");
+            await emitNotification({
+              recipientUserId: cRow.auth_user_id,
+              recipientRole: "counsellor",
+              type: "app.decision_recorded",
+              title: `Offer ${actionText.toUpperCase()}`,
+              message: `Student ${authCtx.user.email} has ${actionText} their offer for ${uniName}.`,
+              entityType: "application",
+              entityId: offer.application_id,
+              studentId,
+              dedupKey: `offer:decision:${data.offerId}:${data.decisionStatus}`,
+            });
+          }
+        }
+      } else {
+        const { emitStudentNotification } = await import("@/lib/notifications.server");
+        await emitStudentNotification(studentId, {
+          type: "app.decision_recorded",
+          title: `Offer Decision Recorded: ${actionText}`,
+          message: `Your offer for ${uniName} has been marked as ${actionText}.`,
+          entityType: "application",
+          entityId: offer.application_id,
+          studentId,
+          dedupKey: `offer:decision:${data.offerId}:${data.decisionStatus}`,
+        });
+      }
+    } catch (notifErr) {
+      console.warn("[NOTIF_EMIT_OFFER_DECISION_WARN]", notifErr);
+    }
 
     const { invalidatePortalCache } = await import("@/lib/portal-supabase.server");
     invalidatePortalCache();
@@ -3382,16 +4024,15 @@ export const createApplicationFollowUpTask = createServerFn({ method: "POST" })
 
     // Isolated notification emission (after commit)
     try {
-      const { emitNotification } = await import("@/lib/notifications.server");
-      await emitNotification({
-        recipientUserId: authCtx.user.id,
-        recipientRole: (authCtx.role as any) ?? "counsellor",
+      const { emitStudentNotification } = await import("@/lib/notifications.server");
+      await emitStudentNotification(app.student_id, {
         type: "task.assigned",
         title: "New Follow-up Task",
-        message: `Task assigned: "${data.title}"`,
+        message: data.description ? `Task: "${data.title}" — ${data.description}` : `Task: "${data.title}"`,
         entityType: "task",
         entityId: inserted.id,
         studentId: app.student_id,
+        dedupKey: `task:followup:${inserted.id}`,
       });
     } catch (notifErr) {
       console.warn("[NOTIF_EMIT_TASK_WARN]", notifErr);
@@ -3584,7 +4225,7 @@ export const updateStudentProfile = createServerFn({ method: "POST" })
       additionalInfo,
     };
   })
-  .handler(async ({ data, request }) => {
+  .handler(async ({ data, request }: any) => {
     const { getAuthenticatedContext } = await import("@/lib/server-auth");
     const authCtx = await getAuthenticatedContext(request);
 

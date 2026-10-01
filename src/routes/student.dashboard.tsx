@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, CalendarPlus, Compass, UserRound, ListTodo } from "lucide-react";
+import { CalendarDays, CalendarPlus, Compass, UserRound, ListTodo, AlertCircle } from "lucide-react";
 import { useMemo } from "react";
 import {
   JourneyProgress,
+  type JourneyStage,
   StudentCard,
   StudentHeading,
   StudentLayout,
@@ -13,6 +14,7 @@ import { studentNav } from "@/components/student/nav";
 import { MeetingButton, SessionEmptyState, SessionStatusBadge } from "@/components/sessions/SessionUI";
 import { isSessionUpcoming, sessionDateLabel, sessionTimeLabel, sessionSlot } from "@/lib/sessions";
 import { useStudentPortalData } from "@/lib/use-portal-data";
+import { TRACKING_STAGES, getStageIndex } from "@/lib/student-tracking";
 import {
   taskCategoryLabels,
   taskPriorityLabels,
@@ -39,12 +41,27 @@ export const Route = createFileRoute("/student/dashboard")({
 
 function StudentDashboardPage() {
   const session = useRequireStudent();
-  const { data } = useStudentPortalData(session?.email);
+  const { data, isLoading, isError, error } = useStudentPortalData(session?.email);
 
+  const isJourneyCompleted = Boolean(data?.tracking?.currentTracking?.journeyCompleted);
+  const currentStage = data?.tracking?.currentTracking?.currentStage || "consultation";
+  const currentStageIndex = getStageIndex(currentStage);
+
+  const journeyStagesList: JourneyStage[] = useMemo(() => {
+    return TRACKING_STAGES.map((stg, idx) => ({
+      label: stg.label,
+      status:
+        isJourneyCompleted || idx < currentStageIndex
+          ? "completed"
+          : idx === currentStageIndex
+          ? "in_progress"
+          : "not_started",
+    }));
+  }, [currentStageIndex, isJourneyCompleted]);
 
   /** Earliest valid upcoming session for this student (same rules as My Sessions). */
   const nextSession = useMemo(() => {
-    const upcoming = data.sessions
+    const upcoming = (data?.sessions ?? [])
       .filter((s) => isSessionUpcoming(s))
       .sort((a, b) => {
         const startA = sessionSlot(a).start?.getTime();
@@ -55,13 +72,83 @@ function StudentDashboardPage() {
         return startA - startB;
       });
     return upcoming[0];
-  }, [data.sessions]);
+  }, [data?.sessions]);
 
   if (!session) return null;
 
+  if (isError) {
+    return (
+      <StudentLayout session={session} nav={studentNav}>
+        <StudentHeading
+          title="Student Portal"
+          text="Access your study abroad journey, consultations and application progress."
+        />
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center shadow-soft">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <h2 className="font-display text-lg font-semibold text-foreground">
+            Session Expired or Authentication Error
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            {error instanceof Error
+              ? error.message
+              : "Your login session could not be authenticated. Please sign in again."}
+          </p>
+          <div className="mt-5">
+            <Link
+              to="/student/login"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-blue px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-brand-blue/90"
+            >
+              Sign In to APEX Portal
+            </Link>
+          </div>
+        </div>
+      </StudentLayout>
+    );
+  }
+
+  if (isLoading || !data) {
+    return (
+      <StudentLayout session={session} nav={studentNav}>
+        <StudentHeading
+          title="Welcome to your APEX Student Portal"
+          text="Track your study abroad journey, consultations and application progress in one place."
+        />
+        <div className="space-y-5">
+          <StudentCard title="Your Study Abroad Journey" icon={Compass}>
+            <div className="space-y-3 py-4">
+              <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+              <div className="grid grid-cols-7 gap-2 pt-2">
+                {[...Array(7)].map((_, i) => (
+                  <div key={i} className="flex flex-col items-center gap-2">
+                    <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+                    <div className="h-3 w-12 animate-pulse rounded bg-muted" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </StudentCard>
+
+          <StudentCard title="Upcoming Consultation" icon={CalendarDays}>
+            <div className="space-y-2 py-4">
+              <div className="h-4 w-1/4 animate-pulse rounded bg-muted" />
+              <div className="h-10 w-full animate-pulse rounded-xl bg-muted" />
+            </div>
+          </StudentCard>
+
+          <StudentCard title="Action Items & Counsellor Follow-ups" icon={ListTodo}>
+            <div className="space-y-2 py-4">
+              <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+              <div className="h-16 w-full animate-pulse rounded-xl bg-muted" />
+            </div>
+          </StudentCard>
+        </div>
+      </StudentLayout>
+    );
+  }
+
   return (
-
-
     <StudentLayout session={session} nav={studentNav}>
       <StudentHeading
         title="Welcome to your APEX Student Portal"
@@ -69,8 +156,19 @@ function StudentDashboardPage() {
       />
 
       <div className="space-y-5">
-        <StudentCard title="Your Study Abroad Journey" icon={Compass}>
-          <JourneyProgress note="Your journey will update as your counselling process progresses." />
+        <StudentCard
+          title="Your Study Abroad Journey"
+          icon={Compass}
+          action={
+            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200">
+              Stage {currentStageIndex + 1} of {TRACKING_STAGES.length}
+            </span>
+          }
+        >
+          <JourneyProgress
+            stages={journeyStagesList}
+            note="Your journey will update as your counselling process progresses."
+          />
         </StudentCard>
 
         <StudentCard

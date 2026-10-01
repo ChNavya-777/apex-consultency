@@ -91,9 +91,9 @@ function StudentDocumentsPage() {
 
   if (!session) return null;
 
-  const profile = findStudent(data.students, session.email);
+  const profile = findStudent(data?.students ?? [], session.email);
   const studentId = profile?.id || session.email;
-  const documents: StudentDocument[] = data.documents || [];
+  const documents: StudentDocument[] = data?.documents || [];
 
   // Guarantee newest document first by created_at DESC
   const sortedDocuments = [...documents].sort(

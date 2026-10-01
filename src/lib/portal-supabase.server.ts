@@ -303,6 +303,8 @@ export async function fetchStudentTrackingData(studentId: string): Promise<{
         id: row.id,
         studentId: row.student_id,
         currentStage: (row.current_stage as import("@/lib/student-tracking").TrackingStage) || "consultation",
+        journeyCompleted: Boolean(row.journey_completed),
+        journeyCompletedAt: row.journey_completed_at ?? null,
         updatedByCounsellorId: row.updated_by_counsellor_id ?? null,
         updatedByCounsellorName: row.updated_by_counsellor_name ?? null,
         stageNotes: row.stage_notes ?? null,
@@ -312,6 +314,8 @@ export async function fetchStudentTrackingData(studentId: string): Promise<{
     : {
         studentId,
         currentStage: "consultation",
+        journeyCompleted: false,
+        journeyCompletedAt: null,
         updatedByCounsellorId: null,
         updatedByCounsellorName: null,
         stageNotes: null,

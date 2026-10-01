@@ -308,7 +308,7 @@ export function resetCounsellorPassword(email: string) {
 }
 
 async function resolveRole(user: { id: string; user_metadata?: Record<string, unknown> }): Promise<PortalRole> {
-  const metaRole = user.user_metadata?.role as PortalRole | undefined;
+  const metaRole = user.user_metadata?.['role'] as PortalRole | undefined;
   if (metaRole) return metaRole;
   try {
     const { supabase } = await import("@/integrations/supabase/client");
@@ -338,13 +338,14 @@ export function useSession(): PortalSession | null | undefined {
           const role = await resolveRole(user);
           setSession({
             role,
-            name: (user.user_metadata?.full_name as string) || user.email || "",
+            name: (user.user_metadata?.['full_name'] as string) || user.email || "",
             email: user.email || "",
           });
         } else {
-          // Fall back to prototype local session ONLY if no active Supabase Auth session exists
+          // Fall back to prototype local session ONLY for staff accounts if no active Supabase Auth session exists.
+          // Student accounts strictly require an authenticated Supabase session.
           const local = readSession();
-          if (local) {
+          if (local && local.role !== "student") {
             setSession(local);
           } else {
             syncTokenCookie(null);
@@ -354,7 +355,11 @@ export function useSession(): PortalSession | null | undefined {
       })
       .catch(() => {
         const local = readSession();
-        setSession(local ?? null);
+        if (local && local.role !== "student") {
+          setSession(local);
+        } else {
+          setSession(null);
+        }
       });
   }, []);
 
@@ -371,12 +376,17 @@ export function useSession(): PortalSession | null | undefined {
           const role = await resolveRole(user);
           setSession({
             role,
-            name: (user.user_metadata?.full_name as string) || user.email || "",
+            name: (user.user_metadata?.['full_name'] as string) || user.email || "",
             email: user.email || "",
           });
         } else {
           syncTokenCookie(null);
-          setSession(readSession());
+          const local = readSession();
+          if (local && local.role !== "student") {
+            setSession(local);
+          } else {
+            setSession(null);
+          }
         }
       });
       unsubscribe = data.subscription.unsubscribe;

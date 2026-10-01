@@ -80,6 +80,8 @@ export type StudentTrackingState = {
   id?: string;
   studentId: string;
   currentStage: TrackingStage;
+  journeyCompleted?: boolean;
+  journeyCompletedAt?: string | null;
   updatedByCounsellorId: string | null;
   updatedByCounsellorName: string | null;
   stageNotes: string | null;

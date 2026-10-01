@@ -42,9 +42,17 @@ import {
   getUnreadNotificationsCount,
   markNotificationReadFn,
   markAllNotificationsReadFn,
+  saveStudentStageProgress,
+  advanceStudentStage,
+  completeStudentJourney,
+  correctStudentStage,
   updateStudentProfile,
   type CounsellorStudentProfileResponse,
   type UpdateTrackingInput,
+  type SaveProgressInput,
+  type AdvanceStageInput,
+  type CompleteJourneyInput,
+  type CorrectStageInput,
   type UpdateStudentProfileInput,
   type CreateNoteInput,
   type TogglePinNoteInput,
@@ -115,7 +123,155 @@ export function useUpdateStudentTracking() {
   const fetcher = useServerFn(updateStudentTracking);
   return useMutation({
     mutationFn: (input: UpdateTrackingInput) => fetcher({ data: input }),
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
+      const persistedStage =
+        (result?.currentStage as import("@/lib/student-tracking").TrackingStage) || variables.newStage;
+      queryClient.setQueriesData<CounsellorStudentProfileResponse>(
+        { queryKey: ["portal", "counsellor-student-profile"] },
+        (old) => {
+          if (!old || !old.tracking) return old;
+          return {
+            ...old,
+            tracking: {
+              ...old.tracking,
+              currentTracking: old.tracking.currentTracking
+                ? {
+                    ...old.tracking.currentTracking,
+                    currentStage: persistedStage,
+                    stageNotes: variables.stageNotes ?? old.tracking.currentTracking.stageNotes,
+                    updatedAt: result?.updatedAt || new Date().toISOString(),
+                  }
+                : null,
+            },
+          };
+        },
+      );
+      queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
+  });
+}
+
+export function useSaveStudentStageProgress() {
+  const queryClient = useQueryClient();
+  const fetcher = useServerFn(saveStudentStageProgress);
+  return useMutation({
+    mutationFn: (input: SaveProgressInput) => fetcher({ data: input }),
+    onSuccess: (result, variables) => {
+      queryClient.setQueriesData<CounsellorStudentProfileResponse>(
+        { queryKey: ["portal", "counsellor-student-profile"] },
+        (old) => {
+          if (!old || !old.tracking) return old;
+          return {
+            ...old,
+            tracking: {
+              ...old.tracking,
+              currentTracking: old.tracking.currentTracking
+                ? {
+                    ...old.tracking.currentTracking,
+                    stageNotes: variables.stageNotes ?? old.tracking.currentTracking.stageNotes,
+                    updatedAt: result?.updatedAt || new Date().toISOString(),
+                  }
+                : null,
+            },
+          };
+        },
+      );
+      queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
+  });
+}
+
+export function useAdvanceStudentStage() {
+  const queryClient = useQueryClient();
+  const fetcher = useServerFn(advanceStudentStage);
+  return useMutation({
+    mutationFn: (input: AdvanceStageInput) => fetcher({ data: input }),
+    onSuccess: (result) => {
+      if (result?.currentStage) {
+        queryClient.setQueriesData<CounsellorStudentProfileResponse>(
+          { queryKey: ["portal", "counsellor-student-profile"] },
+          (old) => {
+            if (!old || !old.tracking) return old;
+            return {
+              ...old,
+              tracking: {
+                ...old.tracking,
+                currentTracking: old.tracking.currentTracking
+                  ? {
+                      ...old.tracking.currentTracking,
+                      currentStage: result.currentStage as import("@/lib/student-tracking").TrackingStage,
+                      updatedAt: result.updatedAt || new Date().toISOString(),
+                    }
+                  : null,
+              },
+            };
+          },
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
+  });
+}
+
+export function useCompleteStudentJourney() {
+  const queryClient = useQueryClient();
+  const fetcher = useServerFn(completeStudentJourney);
+  return useMutation({
+    mutationFn: (input: CompleteJourneyInput) => fetcher({ data: input }),
+    onSuccess: (result) => {
+      queryClient.setQueriesData<CounsellorStudentProfileResponse>(
+        { queryKey: ["portal", "counsellor-student-profile"] },
+        (old) => {
+          if (!old || !old.tracking) return old;
+          return {
+            ...old,
+            tracking: {
+              ...old.tracking,
+              currentTracking: old.tracking.currentTracking
+                ? {
+                    ...old.tracking.currentTracking,
+                    currentStage: "pre_departure",
+                    journeyCompleted: true,
+                    journeyCompletedAt: result?.journeyCompletedAt || new Date().toISOString(),
+                    updatedAt: result?.updatedAt || new Date().toISOString(),
+                  }
+                : null,
+            },
+          };
+        },
+      );
+      queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
+  });
+}
+
+export function useCorrectStudentStage() {
+  const queryClient = useQueryClient();
+  const fetcher = useServerFn(correctStudentStage);
+  return useMutation({
+    mutationFn: (input: CorrectStageInput) => fetcher({ data: input }),
+    onSuccess: (result) => {
+      queryClient.setQueriesData<CounsellorStudentProfileResponse>(
+        { queryKey: ["portal", "counsellor-student-profile"] },
+        (old) => {
+          if (!old || !old.tracking) return old;
+          return {
+            ...old,
+            tracking: {
+              ...old.tracking,
+              currentTracking: old.tracking.currentTracking
+                ? {
+                    ...old.tracking.currentTracking,
+                    currentStage: result.currentStage as import("@/lib/student-tracking").TrackingStage,
+                    journeyCompleted: false,
+                    journeyCompletedAt: null,
+                    updatedAt: result.updatedAt || new Date().toISOString(),
+                  }
+                : null,
+            },
+          };
+        },
+      );
       queryClient.invalidateQueries({ queryKey: ["portal"] });
     },
   });
@@ -304,7 +460,12 @@ export function useStudentPortalData(studentEmail: string | undefined) {
     enabled: !!normalizedEmail,
     staleTime: 60_000,
   });
-  return { ...query, data: query.data ?? empty };
+  // Do not mask loading or authentication errors with fake empty data.
+  // Real PortalData is exposed only on query success.
+  return {
+    ...query,
+    data: query.isSuccess ? query.data : undefined,
+  };
 }
 
 /* ------------------------------------------------------------------ */

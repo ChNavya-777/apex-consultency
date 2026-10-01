@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { site } from "@/data/site";
 import { roleHome, signOut, useSession, type PortalSession } from "@/lib/portal-auth";
 import { useUnreadNotificationCount } from "@/lib/use-portal-data";
+import { NotificationBell } from "@/components/counsellor/NotificationBell";
 
 /* ------------------------------------------------------------------ */
 /* Access control (prototype, client-side)                            */
@@ -150,8 +151,20 @@ export function StudentSidebar({
       </nav>
 
       <div className="border-t border-border px-4 py-4">
-        <p className="truncate text-sm font-semibold text-foreground">Student</p>
-        <p className="truncate text-xs text-muted-foreground">{session.email}</p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">Student</p>
+            <p className="truncate text-xs text-muted-foreground">{session.email}</p>
+          </div>
+          <div className="shrink-0 bg-surface rounded-lg p-0.5">
+            <NotificationBell
+              side="right"
+              align="end"
+              sideOffset={14}
+              triggerClassName="text-foreground hover:bg-muted"
+            />
+          </div>
+        </div>
         <button
           type="button"
           onClick={handleSignOut}
@@ -171,18 +184,11 @@ export function StudentHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
     <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-card/95 px-4 py-3 backdrop-blur lg:hidden">
       <StudentBrand />
       <div className="flex items-center gap-1">
-        <Link
-          to="/student/notifications"
-          className="relative rounded-lg p-2 text-foreground transition-colors hover:bg-surface"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </Link>
+        <NotificationBell
+          side="bottom"
+          align="end"
+          triggerClassName="text-foreground hover:bg-surface"
+        />
         <button
           type="button"
           onClick={onOpenMenu}

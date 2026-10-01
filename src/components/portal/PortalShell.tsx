@@ -67,7 +67,13 @@ export function PortalLayout({
       <div className="flex items-center justify-between border-b border-border bg-navy-deep px-4 py-3 text-primary-foreground lg:hidden">
         <Brand />
         <div className="flex items-center gap-2">
-          {showNotifications && <NotificationBell />}
+          {showNotifications && (
+            <NotificationBell
+              side="bottom"
+              align="end"
+              triggerClassName="text-white/80 hover:text-white hover:bg-white/10"
+            />
+          )}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -130,7 +136,12 @@ export function PortalLayout({
             </div>
             {showNotifications && (
               <div className="shrink-0 bg-white/10 rounded-lg p-0.5">
-                <NotificationBell />
+                <NotificationBell
+                  side="right"
+                  align="end"
+                  sideOffset={14}
+                  triggerClassName="text-white/80 hover:text-white hover:bg-white/10"
+                />
               </div>
             )}
           </div>
@@ -294,7 +305,7 @@ export function PortalLogin({
                 } else if (sbData.user) {
                   setError(null);
                   syncTokenCookie(sbData.session?.access_token);
-                  const role = (sbData.user.user_metadata?.role as PortalRole) || "student";
+                  const role = (sbData.user.user_metadata?.['role'] as PortalRole) || "student";
                   const targetHome = roleHome[role] || "/student/dashboard";
                   navigate({ to: targetHome, replace: true });
                 }

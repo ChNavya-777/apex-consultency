@@ -54,7 +54,7 @@ function StudentProfilePage() {
   const { data, isLoading } = useStudentPortalData(session?.email);
   if (!session) return null;
 
-  const profile = findStudent(data.students, session.email);
+  const profile = findStudent(data?.students ?? [], session.email);
   const found = !!profile?.found;
 
   /** Values come straight from the Student Sheet — nothing is guessed. */
@@ -88,7 +88,7 @@ function StudentProfilePage() {
             text={
               isLoading
                 ? "Fetching your consultation details."
-                : (data.studentSourceError ??
+                : (data?.studentSourceError ??
                   "We couldn't find a consultation enquiry for this email address yet. Your details will appear here once you submit the consultation form.")
             }
           />
