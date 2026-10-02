@@ -4,11 +4,21 @@ import { Menu, X, GraduationCap, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { navLinks, site } from "@/data/site";
 import { cn } from "@/lib/utils";
+import { roleHome, signOut, useSession } from "@/lib/portal-auth";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const session = useSession();
+
+  const isStudent = session?.role === "student";
+  const dashboardHref = session
+    ? session.role === "student"
+      ? "/student/dashboard"
+      : roleHome[session.role]
+    : "/student/login";
+  const dashboardLabel = isStudent ? "Student Dashboard" : "Dashboard";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -71,9 +81,35 @@ export function Navbar() {
               <Phone className="size-4" aria-hidden="true" />
               {site.phone}
             </a>
-            <Button asChild variant="outline" className="hidden sm:inline-flex">
-              <Link to="/student/login">Login / Sign Up</Link>
-            </Button>
+
+            {session === undefined ? (
+              <Button
+                variant="outline"
+                className="invisible hidden sm:inline-flex"
+                tabIndex={-1}
+                aria-hidden="true"
+              >
+                Login / Sign Up
+              </Button>
+            ) : session ? (
+              <>
+                <Button asChild variant="outline" className="hidden sm:inline-flex">
+                  <Link to={dashboardHref}>{dashboardLabel}</Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="hidden sm:inline-flex text-muted-foreground hover:text-foreground"
+                  onClick={() => signOut()}
+                >
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <Button asChild variant="outline" className="hidden sm:inline-flex">
+                <Link to="/student/login">Login / Sign Up</Link>
+              </Button>
+            )}
+
             <Button asChild variant="gold" className="hidden sm:inline-flex">
               <Link to="/demo-call">Book a Demo Call</Link>
             </Button>
@@ -106,11 +142,46 @@ export function Navbar() {
               </Link>
             ))}
             <div className="mt-3 grid gap-2 pb-4">
-              <Button asChild variant="outline" size="lg">
-                <Link to="/student/login">Login / Sign Up</Link>
-              </Button>
+              {session === undefined ? (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="invisible"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                >
+                  Login / Sign Up
+                </Button>
+              ) : session ? (
+                <>
+                  <Button asChild variant="outline" size="lg">
+                    <Link to={dashboardHref} onClick={() => setOpen(false)}>
+                      {dashboardLabel}
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => {
+                      signOut();
+                      setOpen(false);
+                    }}
+                  >
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <Button asChild variant="outline" size="lg">
+                  <Link to="/student/login" onClick={() => setOpen(false)}>
+                    Login / Sign Up
+                  </Link>
+                </Button>
+              )}
+
               <Button asChild variant="gold" size="lg">
-                <Link to="/demo-call">Book a Demo Call</Link>
+                <Link to="/demo-call" onClick={() => setOpen(false)}>
+                  Book a Demo Call
+                </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
                 <a href={`tel:${site.phone.replace(/\s/g, "")}`}>Call {site.phone}</a>

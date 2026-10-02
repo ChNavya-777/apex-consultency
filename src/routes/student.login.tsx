@@ -1,10 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { startStudentSession, syncTokenCookie } from "@/lib/portal-auth";
+import { startStudentSession, syncTokenCookie, useSession } from "@/lib/portal-auth";
 import { createStudentAccount, studentLogin } from "@/lib/student-auth.functions";
 import { cn } from "@/lib/utils";
 import { site } from "@/data/site";
@@ -33,11 +33,19 @@ const labelClass = "mb-1.5 block text-xs font-semibold text-muted-foreground";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function StudentLoginPage() {
+  const session = useSession();
   const navigate = useNavigate();
   const { redirect } = Route.useSearch();
   const afterSignIn = redirect === "/consultation" ? "/consultation" : "/student/dashboard";
   const login = useServerFn(studentLogin);
   const createAccount = useServerFn(createStudentAccount);
+
+  useEffect(() => {
+    if (session === undefined) return;
+    if (session && session.role === "student") {
+      void navigate({ to: afterSignIn, replace: true });
+    }
+  }, [session, afterSignIn, navigate]);
 
   const [mode, setMode] = useState<"signin" | "create">("signin");
   const [busy, setBusy] = useState(false);
@@ -52,6 +60,14 @@ function StudentLoginPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+
+  if (session && session.role === "student") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-12">
+        <p className="text-sm text-muted-foreground">Redirecting to your dashboard…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-12">

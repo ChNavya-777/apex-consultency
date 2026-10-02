@@ -96,8 +96,9 @@ export const Route = createFileRoute("/api/consultation")({
           additionalInfo: data.message,
         };
 
-        /** Existing Apps Script / Google Sheet flow — unchanged behaviour, now reported as a flag. */
+        /** Apps Script / Google Sheet flow with diagnostic logging. */
         const writeSheet = async (): Promise<{ ok: boolean; message?: string }> => {
+          const sheetStart = Date.now();
           try {
             const endpoint =
               process.env["CONSULTATION_APPS_SCRIPT_URL"]?.trim() || APPS_SCRIPT_WEB_APP_URL;
@@ -111,13 +112,20 @@ export const Route = createFileRoute("/api/consultation")({
               },
               body: JSON.stringify(payload),
               redirect: "follow",
-              // Without this the request can hang until the platform gateway
-              // times out, which surfaces to the student as a blank 502 page.
               signal: AbortSignal.timeout(15_000),
             });
 
+            const durationMs = Date.now() - sheetStart;
+
             if (!response.ok) {
-              console.error(`Apps Script web app failed (${response.status})`);
+              console.error("[CONSULTATION_SHEET_FAILURE]", {
+                status: response.status,
+                statusText: response.statusText,
+                category:
+                  response.status >= 500 ? "UPSTREAM_SERVER_ERROR" : "UPSTREAM_CLIENT_ERROR",
+                durationMs,
+                emailDomain: data.email.split("@")[1] ?? "unknown",
+              });
               return {
                 ok: false,
                 message:
@@ -132,64 +140,96 @@ export const Route = createFileRoute("/api/consultation")({
               | null;
 
             if (!result || result.success !== true) {
-              console.error("Apps Script web app did not confirm success:", result);
+              console.error("[CONSULTATION_SHEET_UNCONFIRMED]", {
+                category: "SCRIPT_UNCONFIRMED_SUCCESS",
+                durationMs,
+                emailDomain: data.email.split("@")[1] ?? "unknown",
+              });
               return { ok: false, message: "Your request could not be confirmed. Please try again." };
             }
             return { ok: true };
           } catch (error) {
-            const message = error instanceof Error ? error.message : "Network error";
-            console.error("Apps Script web app network error:", message);
-            return { ok: false, message: "Network error. Please try again." };
+            const durationMs = Date.now() - sheetStart;
+            const isTimeout =
+              error instanceof Error &&
+              (error.name === "TimeoutError" || error.name === "AbortError");
+            console.error("[CONSULTATION_SHEET_ERROR]", {
+              category: isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_NETWORK_ERROR",
+              errorName: error instanceof Error ? error.name : "UnknownError",
+              errorMessage: error instanceof Error ? error.message : String(error),
+              durationMs,
+              emailDomain: data.email.split("@")[1] ?? "unknown",
+            });
+            return {
+              ok: false,
+              message: isTimeout
+                ? "Network timeout. Please try again."
+                : "Network error. Please try again.",
+            };
           }
         };
 
-        const sheet = await writeSheet();
-
-        // Supabase is the primary application store; a failure here never reverts the sheet row.
         const { writeConsultationToSupabase } = await import("@/lib/consultation-write.server");
-        const db = await writeConsultationToSupabase({ ...data, submittedAt });
 
-        if (sheet.ok && db.ok) {
+        // Concurrent execution: both writes run in parallel
+        const [sheetSettled, dbSettled] = await Promise.allSettled([
+          writeSheet(),
+          writeConsultationToSupabase({ ...data, submittedAt }),
+        ]);
+
+        const sheet =
+          sheetSettled.status === "fulfilled"
+            ? sheetSettled.value
+            : { ok: false, message: "Sheet write rejected" };
+
+        const db =
+          dbSettled.status === "fulfilled"
+            ? dbSettled.value
+            : {
+                ok: false,
+                error:
+                  dbSettled.reason instanceof Error
+                    ? dbSettled.reason.message
+                    : "Database write rejected",
+              };
+
+        // Scenario A & B: Supabase write succeeded (authoritative success condition)
+        if (db.ok) {
+          if (!sheet.ok) {
+            console.warn("[CONSULTATION_DUAL_WRITE_PARTIAL]", {
+              database: true,
+              sheet: false,
+              studentId: db.studentId,
+              profileId: db.profileId,
+              sheetError: sheet.message,
+              emailDomain: data.email.split("@")[1] ?? "unknown",
+            });
+          }
           return Response.json({
             success: true,
-            sheet: true,
+            sheet: sheet.ok,
             database: true,
             studentId: db.studentId,
             profileId: db.profileId,
           });
         }
 
-        if (sheet.ok && !db.ok) {
-          // The student's submission is safely recorded in the sheet; flag the storage failure.
-          return Response.json({
-            success: true,
-            sheet: true,
-            database: false,
-            message:
-              "Your request was received, but saving it to our records failed. Our team has been notified.",
-          });
-        }
-
-        if (!sheet.ok && db.ok) {
-          return Response.json(
-            {
-              success: false,
-              sheet: false,
-              database: true,
-              message: sheet.message ?? "Your request could not be fully confirmed.",
-            },
-            { status: 502 }
-          );
-        }
+        // Scenario C: Supabase write failed — genuine submission failure
+        console.error("[CONSULTATION_SUBMISSION_FAILED]", {
+          database: false,
+          sheet: sheet.ok,
+          dbError: db.error,
+          emailDomain: data.email.split("@")[1] ?? "unknown",
+        });
 
         return Response.json(
           {
             success: false,
-            sheet: false,
+            sheet: sheet.ok,
             database: false,
-            message: sheet.message ?? "Submission failed. Please try again.",
+            message: "Submission failed. Please try again.",
           },
-          { status: 502 }
+          { status: 500 }
         );
       },
     },
